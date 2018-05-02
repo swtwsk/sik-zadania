@@ -3,4 +3,4 @@ project(SIK1)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(SIK1 main.cpp TCPSocket.cpp TCPSocket.h)
+add_executable(SIK1 main.cpp Server.cpp Server.h TelnetServer.cpp TelnetServer.h)

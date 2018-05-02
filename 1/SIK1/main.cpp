@@ -2,7 +2,8 @@
 #include <netinet/in.h>
 #include <sstream>
 
-#include "TCPSocket.h"
+#include "Server.h"
+#include "TelnetServer.h"
 
 int main(int argc, char *argv[]) {
     if (argc != 2) {
@@ -11,20 +12,20 @@ int main(int argc, char *argv[]) {
     }
 
     std::istringstream ss(argv[1]);
-    TCPSocket::portType port;
+    TelnetServer::PortType port;
     if (!(ss >> port)) {
         std::cerr << "Invalid port" << std::endl;
         return 1;
     }
 
     try {
-        TCPSocket tcpSocket(port);
+        TelnetServer telnetServer(port);
+        telnetServer.handleTelnetConnection();
     }
-    catch (TCPSocketException &t) {
-        std::cerr << t.what() << std::endl;
+    catch (ServerException &e) {
+        std::cerr << e.what() << std::endl;
         return 1;
     }
 
-    std::cout << "Hello, World!" << std::endl;
     return 0;
 }
