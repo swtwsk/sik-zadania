@@ -32,7 +32,7 @@ void Server::acceptConnection() {
     }
 }
 
-void Server::readClient() {
+/*void Server::readClient() {
     ssize_t len;
     char buffer[2000];
     do {
@@ -43,6 +43,46 @@ void Server::readClient() {
         std::cout << "Read from socket: " << buffer;
         memset(buffer, 0, sizeof(buffer));
     } while (len > 0);
+}*/
+
+std::string Server::readClient() {
+    ssize_t len;
+    char buffer[2000]; // TODO: Set length
+    do {
+        len = read(client_sock, buffer, sizeof(buffer));
+        if (len < 0) {
+            throw ServerClientConnectionException();
+        }
+        std::cout << "Read from socket: " << buffer;
+        memset(buffer, 0, sizeof(buffer));
+    } while (len > 0);
+}
+
+std::string Server::readClient(size_t len) {
+    auto left_to_read = len;
+    auto *buffer = new char[len];
+    std::string read_message;
+
+    do {
+        ssize_t read_len = read(client_sock, buffer, len);
+        if (read_len < 0) {
+            throw ServerClientConnectionException();
+        }
+        left_to_read -= read_len;
+        for (auto i = 0; i < read_len; ++i) {
+            std::cout << (int)(unsigned char) buffer[i] << " ";
+            //read_message.push_back(buffer[i]);
+        }
+        /*std::cout << "Read from socket: " << buffer;*/
+        read_message.append(buffer, read_len);
+        memset(buffer, 0, len);
+    } while (left_to_read > 0);
+
+    std::cout << std::endl;
+
+    //std::cout << "\n" << read_message << std::endl;
+
+    return read_message;
 }
 
 char Server::readCharacter() {

@@ -1,4 +1,5 @@
 #include <iostream>
+#include <functional>
 #include "TelnetServer.h"
 
 #pragma clang diagnostic push
@@ -9,9 +10,9 @@ void TelnetServer::handleTelnetConnection() {
             server_->acceptConnection();
             std::cout << "Connection accepted" << std::endl;
 
-            server_->writeClient(telnetSettings());
+            telnetSettings();
             showMainMenu();
-            server_->readClient();
+            //server_->readClient();
 
            /* char readChar;
             bool clientEndConnection = false;
@@ -29,33 +30,102 @@ void TelnetServer::handleTelnetConnection() {
     }
 }
 
+std::string TelnetServer::clearScreen() {
+    static const std::string CLEAR_SCREEN_CODE = "\e[2J";
+    return CLEAR_SCREEN_CODE;
+}
+
+std::string TelnetServer::setCursorPosition(int line, int column) {
+    static const std::string SET_CURSOR_CODE_PREF = "\e[";
+    static const std::string SET_CURSOR_CODE_SUFF = "H";
+    return SET_CURSOR_CODE_PREF + std::to_string(line) + ";" + std::to_string(column) + SET_CURSOR_CODE_SUFF;
+}
+
 void TelnetServer::showMainMenu() {
-    std::stringstream ss;
+    /*std::stringstream ss;
     ss << '\n';
     ss << "======================================================\n";
+    ss << '\n';
     ss << "  Welcome to Telnet Server  ";
     ss << "\n\n";
     ss << "======================================================\n";
     server_->writeClient(ss.str());
-    sleep(5);
-    server_->writeClient("\e[2J");
+    sleep(5);*/
+    //server_->writeClient("\e[2J");
     server_->writeClient("SEEMS WORKING XD");
 }
 
-std::string TelnetServer::telnetSettings() {
-    std::string telnetSettings;
+void TelnetServer::telnetSettings() {
+    sendWill(charSettingValue(TelnetSettings::ECHO));
+    server_->readClient(3);
+    sendWill(charSettingValue(TelnetSettings::SUPPRESS_GO_AHEAD));
+    server_->readClient(3);
+    sendDo(charSettingValue(TelnetSettings::NAWS));
+    std::string client_message = server_->readClient(3);
 
-    telnetSettings.push_back(IAC);
-    telnetSettings.push_back(WILL);
-    telnetSettings.push_back(ECHO);
-    telnetSettings.push_back(IAC);
-    telnetSettings.push_back(WILL);
-    telnetSettings.push_back(SUPPRESS_GO_AHEAD);
-    telnetSettings.push_back(IAC);
-    telnetSettings.push_back(WONT);
-    telnetSettings.push_back(LINEMODE);
+    auto csv = std::bind(charSettingValue, std::placeholders::_1);
+    using ts = TelnetSettings;
+    std::stringstream naws_accept_ss;
+    naws_accept_ss << csv(ts::IAC) << csv(ts::WILL) << csv(ts::NAWS);
 
-    return telnetSettings;
+    if (client_message == naws_accept_ss.str()) {
+        //std::cout << "NAWS ACCEPTED\n";
+        std::string dimensions = server_->readClient(9);
+        terminalWidth_ = (unsigned char) dimensions[4];
+        terminalHeight_ = (unsigned char) dimensions[6];
+        std::cout << "h: " << terminalHeight_ << ", w: " << terminalWidth_ << '\n';
+    } else {
+        std::cout << "NAWS NOT ACCEPTED\n";
+    }
+
+    sendWont(charSettingValue(TelnetSettings::LINEMODE));
+
+    int i = 0;
+
+    while (true) {
+        char c = server_->readCharacter();
+        printf("%d ", (unsigned char) c);
+        //std::cout << (int)(unsigned char) c << " ";
+        if (c == '\e') {
+            printf("ESCAPE\n");
+            c = server_->readCharacter();
+            printf("s: %d \n", (unsigned char) c);
+            if (c == '[') {
+                c = server_->readCharacter();
+                printf("s: %d \n", (unsigned char) c);
+                if (c == 'B') {
+                    printf("B\n");
+                    break;
+                }
+            }
+        }
+        ++i;
+        if (i == 30) {
+            break;
+        }
+    }
+}
+
+void TelnetServer::sendIac(TelnetServer::TelnetSettings ts, char option) {
+    std::stringstream msgOption;
+    msgOption << charSettingValue(TelnetSettings::IAC) << charSettingValue(ts) << option;
+    server_->writeClient(msgOption.str());
+}
+
+void TelnetServer::sendWill(char option) {
+    sendIac(TelnetSettings::WILL, option);
+}
+
+void TelnetServer::sendWont(char option) {
+    sendIac(TelnetSettings::WONT, option);
+}
+
+void TelnetServer::sendDo(char option) {
+    sendIac(TelnetSettings::DO, option);
+}
+
+constexpr char TelnetServer::charSettingValue(TelnetServer::TelnetSettings t) {
+    return static_cast<char>(t);
 }
 
 #pragma clang diagnostic pop
