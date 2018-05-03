@@ -17,7 +17,6 @@ public:
     explicit Server(PortType port);
 
     void acceptConnection();
-    //void readClient();
     std::string readClient();
     std::string readClient(size_t len);
     char readCharacter();

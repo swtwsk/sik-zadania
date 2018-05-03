@@ -11,16 +11,8 @@ void TelnetServer::handleTelnetConnection() {
             std::cout << "Connection accepted" << std::endl;
 
             telnetSettings();
-            showMainMenu();
-            //server_->readClient();
+            menuLoop();
 
-           /* char readChar;
-            bool clientEndConnection = false;
-            do {
-                switch (readChar = server_->readCharacter()) {
-                    case "\e["
-                }
-            } while (clientEndConnection);*/
             server_->endConnection();
             std::cout << "Connection closed" << std::endl;
         }
@@ -30,29 +22,241 @@ void TelnetServer::handleTelnetConnection() {
     }
 }
 
-std::string TelnetServer::clearScreen() {
+void TelnetServer::clearScreen() {
     static const std::string CLEAR_SCREEN_CODE = "\e[2J";
-    return CLEAR_SCREEN_CODE;
+    server_->writeClient(CLEAR_SCREEN_CODE);
 }
 
-std::string TelnetServer::setCursorPosition(int line, int column) {
+void TelnetServer::setCursorPosition(int line, int column) {
     static const std::string SET_CURSOR_CODE_PREF = "\e[";
     static const std::string SET_CURSOR_CODE_SUFF = "H";
-    return SET_CURSOR_CODE_PREF + std::to_string(line) + ";" + std::to_string(column) + SET_CURSOR_CODE_SUFF;
+
+    std::string to_write = SET_CURSOR_CODE_PREF;
+    to_write += std::to_string(line);
+    to_write += ";";
+    to_write += std::to_string(column);
+    to_write += SET_CURSOR_CODE_SUFF;
+
+    server_->writeClient(to_write);
 }
 
-void TelnetServer::showMainMenu() {
-    /*std::stringstream ss;
-    ss << '\n';
-    ss << "======================================================\n";
-    ss << '\n';
-    ss << "  Welcome to Telnet Server  ";
-    ss << "\n\n";
-    ss << "======================================================\n";
-    server_->writeClient(ss.str());
-    sleep(5);*/
-    //server_->writeClient("\e[2J");
-    server_->writeClient("SEEMS WORKING XD");
+TelnetServer::Key TelnetServer::keyDownLoop() {
+    while (true) {
+        char c = server_->readCharacter();
+        if (c == '\e') {
+            c = server_->readCharacter();
+            if (c == '[') {
+                c = server_->readCharacter();
+                if (c == 'A') {
+                    return Key::UP;
+                }
+                else if (c == 'B') {
+                    return Key::DOWN;
+                }
+            }
+        }
+        else if (c == '\15') {
+            c = server_->readCharacter();
+            if (c == '\0' || c == '\12') {
+                return Key::ENTER;
+            }
+        }
+    }
+}
+
+void TelnetServer::menuLoop() {
+    MenuState active_menu = mainMenuA();
+    while (true) {
+        active_menu = ((*this).*active_menu)();
+        if (active_menu == &TelnetServer::mainMenuSendEnd) {
+            return;
+        }
+    }
+}
+
+TelnetServer::MenuState_ TelnetServer::mainMenuA() {
+    showMainMenu(2);
+
+    while (true) {
+        Key keyDown = keyDownLoop();
+        if (keyDown == Key::DOWN) {
+            return &TelnetServer::mainMenuB;
+        }
+        else if (keyDown == Key::ENTER) {
+            std::cout << "A" << std::endl;
+        }
+    }
+}
+
+TelnetServer::MenuState_ TelnetServer::mainMenuB() {
+    showMainMenu(3);
+    while (true) {
+        Key keyDown = keyDownLoop();
+        if (keyDown == Key::DOWN) {
+            return &TelnetServer::mainMenuEnd;
+        }
+        else if (keyDown == Key::UP) {
+            return &TelnetServer::mainMenuA;
+        }
+        else if (keyDown == Key::ENTER) {
+            return &TelnetServer::bMenuB1;
+        }
+    }
+}
+
+TelnetServer::MenuState_ TelnetServer::mainMenuEnd() {
+    showMainMenu(4);
+    while (true) {
+        Key keyDown = keyDownLoop();
+        if (keyDown == Key::UP) {
+            return &TelnetServer::mainMenuB;
+        }
+        else if (keyDown == Key::ENTER) {
+            return &TelnetServer::mainMenuSendEnd;
+        }
+    }
+}
+
+TelnetServer::MenuState_ TelnetServer::mainMenuSendEnd() {
+    return &TelnetServer::mainMenuSendEnd;
+}
+
+TelnetServer::MenuState_ TelnetServer::bMenuB1() {
+    showBMenu(2);
+    while (true) {
+        Key keyDown = keyDownLoop();
+        if (keyDown == Key::DOWN) {
+            return &TelnetServer::bMenuB2;
+        }
+        else if (keyDown == Key::ENTER) {
+            std::cout << "B1" << std::endl;
+        }
+    }
+}
+
+TelnetServer::MenuState_ TelnetServer::bMenuB2() {
+    showBMenu(3);
+    while (true) {
+        Key keyDown = keyDownLoop();
+        if (keyDown == Key::DOWN) {
+            return &TelnetServer::bMenuReturn;
+        }
+        else if (keyDown == Key::UP) {
+            return &TelnetServer::bMenuB1;
+        }
+        else if (keyDown == Key::ENTER) {
+            std::cout << "B2" << std::endl;
+        }
+    }
+}
+
+TelnetServer::MenuState_ TelnetServer::bMenuReturn() {
+    showBMenu(4);
+    while (true) {
+        Key keyDown = keyDownLoop();
+        if (keyDown == Key::UP) {
+            return &TelnetServer::bMenuB2;
+        }
+        else if (keyDown == Key::ENTER) {
+            return &TelnetServer::mainMenuB;
+        }
+    }
+}
+
+void TelnetServer::showMainMenu(int cursor_line) {
+    using std::string;
+
+    clearScreen();
+
+    auto line = 1;
+    setCursorPosition(line, 0);
+
+    server_->writeClient(string(terminal_width_,' '));
+    server_->writeClient('\n');
+    ++line;
+    setCursorPosition(line, 0);
+
+    auto sign_count = (terminal_width_ - MENU_WIDTH) / 2;
+    string background_signs = string(sign_count, ' ');
+    string main_menu_options[] = { "Opcja A", "Opcja B", "Koniec" };
+
+    string to_write;
+    for (auto &option : main_menu_options) {
+        to_write = background_signs;
+        to_write += option;
+        to_write += string(MENU_WIDTH - option.size(), ' ');
+        to_write += background_signs;
+        to_write += '\n';
+        server_->writeClient(to_write);
+        ++line;
+        setCursorPosition(line, 0);
+    }
+
+    to_write = background_signs;
+    to_write += string(MENU_WIDTH, ' ');
+    to_write += background_signs;
+    server_->writeClient(to_write);
+    server_->writeClient('\n');
+    ++line;
+    setCursorPosition(line, 0);
+
+    for (auto i = line; i < terminal_height_; ++i) {
+        server_->writeClient(string(terminal_width_, ' '));
+        server_->writeClient('\n');
+        ++line;
+        setCursorPosition(line, 0);
+    }
+    server_->writeClient(string(terminal_width_, ' '));
+
+    setCursorPosition(cursor_line, 2);
+}
+
+void TelnetServer::showBMenu(int cursor_line) {
+    using std::string;
+
+    clearScreen();
+
+    auto line = 1;
+    setCursorPosition(line, 0);
+
+    server_->writeClient(string(terminal_width_,' '));
+    server_->writeClient('\n');
+    ++line;
+    setCursorPosition(line, 0);
+
+    auto sign_count = (terminal_width_ - MENU_WIDTH) / 2;
+    string background_signs = string(sign_count, ' ');
+    string main_menu_options[] = { "Opcja B1", "Opcja B2", "Wstecz" };
+
+    string to_write;
+    for (auto &option : main_menu_options) {
+        to_write = background_signs;
+        to_write += option;
+        to_write += string(MENU_WIDTH - option.size(), ' ');
+        to_write += background_signs;
+        to_write += '\n';
+        server_->writeClient(to_write);
+        ++line;
+        setCursorPosition(line, 0);
+    }
+
+    to_write = background_signs;
+    to_write += string(MENU_WIDTH, ' ');
+    to_write += background_signs;
+    server_->writeClient(to_write);
+    server_->writeClient('\n');
+    ++line;
+    setCursorPosition(line, 0);
+
+    for (auto i = line; i < terminal_height_; ++i) {
+        server_->writeClient(string(terminal_width_, ' '));
+        server_->writeClient('\n');
+        ++line;
+        setCursorPosition(line, 0);
+    }
+    server_->writeClient(string(terminal_width_, ' '));
+
+    setCursorPosition(cursor_line, 2);
 }
 
 void TelnetServer::telnetSettings() {
@@ -71,39 +275,14 @@ void TelnetServer::telnetSettings() {
     if (client_message == naws_accept_ss.str()) {
         //std::cout << "NAWS ACCEPTED\n";
         std::string dimensions = server_->readClient(9);
-        terminalWidth_ = (unsigned char) dimensions[4];
-        terminalHeight_ = (unsigned char) dimensions[6];
-        std::cout << "h: " << terminalHeight_ << ", w: " << terminalWidth_ << '\n';
+        terminal_width_ = (unsigned char) dimensions[4];
+        terminal_height_ = (unsigned char) dimensions[6];
+        std::cout << "h: " << terminal_height_ << ", w: " << terminal_width_ << '\n';
     } else {
         std::cout << "NAWS NOT ACCEPTED\n";
     }
 
     sendWont(charSettingValue(TelnetSettings::LINEMODE));
-
-    int i = 0;
-
-    while (true) {
-        char c = server_->readCharacter();
-        printf("%d ", (unsigned char) c);
-        //std::cout << (int)(unsigned char) c << " ";
-        if (c == '\e') {
-            printf("ESCAPE\n");
-            c = server_->readCharacter();
-            printf("s: %d \n", (unsigned char) c);
-            if (c == '[') {
-                c = server_->readCharacter();
-                printf("s: %d \n", (unsigned char) c);
-                if (c == 'B') {
-                    printf("B\n");
-                    break;
-                }
-            }
-        }
-        ++i;
-        if (i == 30) {
-            break;
-        }
-    }
 }
 
 void TelnetServer::sendIac(TelnetServer::TelnetSettings ts, char option) {
