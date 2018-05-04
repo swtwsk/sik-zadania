@@ -17,8 +17,6 @@ Server::Server(PortType port) {
         throw ServerCreateException("bind");
     }
 
-    const int QUEUE_LENGTH = 5; // TODO: change it!
-
     if (listen(sock, QUEUE_LENGTH) < 0) {
         throw ServerCreateException("listen");
     }
@@ -32,19 +30,6 @@ void Server::acceptConnection() {
     }
 }
 
-std::string Server::readClient() {
-    ssize_t len;
-    char buffer[2000]; // TODO: Set length
-    do {
-        len = read(client_sock, buffer, sizeof(buffer));
-        if (len < 0) {
-            throw ServerClientConnectionException();
-        }
-        std::cout << "Read from socket: " << buffer;
-        memset(buffer, 0, sizeof(buffer));
-    } while (len > 0);
-}
-
 std::string Server::readClient(size_t len) {
     auto left_to_read = len;
     auto *buffer = new char[len];
@@ -52,11 +37,18 @@ std::string Server::readClient(size_t len) {
 
     do {
         ssize_t read_len = read(client_sock, buffer, len);
-        if (read_len < 0) {
+
+        if (read_len <= 0) {
+            if (read_len == 0) {
+                throw ServerClientDisconnectedException();
+            }
+
             throw ServerClientConnectionException();
         }
+
         left_to_read -= read_len;
-        read_message.append(buffer, read_len); // read_len is >= 0
+        read_message.append(buffer, read_len); // read_len is > 0
+
         memset(buffer, 0, len);
     } while (left_to_read > 0);
 
@@ -78,13 +70,13 @@ char Server::readCharacter() {
     return read_char;
 }
 
-void Server::writeClient(int character) {
+void Server::writeToClient(int character) {
     if (write(client_sock, &character, 1) != 1) {
         throw ServerClientConnectionException();
     }
 }
 
-void Server::writeClient(const std::string &msg) {
+void Server::writeToClient(const std::string &msg) {
     ssize_t len;
     len = write(client_sock, msg.c_str(), msg.size());
     if (len != msg.size()) {

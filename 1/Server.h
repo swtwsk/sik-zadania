@@ -1,5 +1,5 @@
-#ifndef TCPSOCKET_H
-#define TCPSOCKET_H
+#ifndef SERVER_H
+#define SERVER_H
 
 #include <cstdint>
 #include <netinet/in.h>
@@ -9,7 +9,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-// TODO: think about abstracting it
 class Server {
 public:
     using PortType = uint16_t;
@@ -17,14 +16,17 @@ public:
     explicit Server(PortType port);
 
     void acceptConnection();
-    std::string readClient();
-    std::string readClient(size_t len);
-    char readCharacter();
-    void writeClient(int character);
-    void writeClient(const std::string &msg);
     void endConnection();
 
+    std::string readClient(size_t len);
+    char readCharacter();
+
+    void writeToClient(int character);
+    void writeToClient(const std::string &msg);
+
 private:
+    const int QUEUE_LENGTH = 5;
+
     int sock;
     int client_sock;
 
@@ -35,6 +37,8 @@ private:
 
 class ServerException : public std::exception {
 public:
+    ServerException() = delete;
+
     const char *what() const noexcept override;
 
 protected:
@@ -62,4 +66,4 @@ public:
     ServerClientDisconnectedException() : ServerClientConnectionException("client disconnected") {}
 };
 
-#endif //TCPSOCKET_H
+#endif //SERVER_H
