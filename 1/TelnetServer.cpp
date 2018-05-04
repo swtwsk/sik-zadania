@@ -68,11 +68,6 @@ std::string TelnetServer::brightDisplaySetting() {
     return RESET_DISPLAY_ATTR;
 }
 
-std::string TelnetServer::resetColorSetting() {
-    static const std::string RESET_DISPLAY_ATTR = "\x1B[0m";
-    return RESET_DISPLAY_ATTR;
-}
-
 TelnetServer::Key TelnetServer::readKeyDown() {
     const static char NULL_CHAR = '\0';
     const static char CR = '\15';

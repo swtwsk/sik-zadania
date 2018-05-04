@@ -21,7 +21,6 @@ public:
     std::string readClient(size_t len);
     char readCharacter();
 
-    void writeToClient(int character);
     void writeToClient(const std::string &msg);
 
 private:

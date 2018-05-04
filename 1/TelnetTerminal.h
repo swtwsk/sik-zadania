@@ -1,5 +1,5 @@
-#ifndef TELNETTERMINAL_H
-#define TELNETTERMINAL_H
+#ifndef TELNET_TERMINAL_H
+#define TELNET_TERMINAL_H
 
 #include <memory>
 #include "TelnetServer.h"
@@ -67,4 +67,4 @@ private:
     std::string chosen_option_;
 };
 
-#endif //TELNETTERMINAL_H
+#endif //TELNET_TERMINAL_H

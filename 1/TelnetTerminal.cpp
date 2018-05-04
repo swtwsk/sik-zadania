@@ -14,12 +14,17 @@ TelnetTerminal::TelnetTerminal(std::unique_ptr<TelnetServer> telnet_server)
 
 void TelnetTerminal::handleClient() {
     while (true) {
-        telnet_server_->acceptTelnetConnection();
+        try {
+            telnet_server_->acceptTelnetConnection();
 
-        setTelnetSettings();
-        menuLoop();
+            setTelnetSettings();
+            menuLoop();
 
-        telnet_server_->endTelnetConnection();
+            telnet_server_->endTelnetConnection();
+        }
+        catch (ServerClientDisconnectedException &e) {
+            std::cout << e.what() << std::endl;
+        }
     }
 }
 
@@ -27,11 +32,11 @@ void TelnetTerminal::setTelnetSettings() {
     using TelnetSettings = TelnetServer::TelnetSettings;
     auto enumVal = std::bind(TelnetServer::enumValue<TelnetSettings>, std::placeholders::_1);
 
-    telnet_server_->sendWill(enumVal(TelnetSettings::ECHO), true);
-    telnet_server_->sendWill(enumVal(TelnetSettings::SUPPRESS_GO_AHEAD), true);
+    telnet_server_->sendWill(static_cast<char>(enumVal(TelnetSettings::ECHO)), true);
+    telnet_server_->sendWill(static_cast<char>(enumVal(TelnetSettings::SUPPRESS_GO_AHEAD)), true);
 
     // Negotiate NAWS with client
-    string client_message = telnet_server_->sendDo(enumVal(TelnetSettings::NAWS), true);
+    string client_message = telnet_server_->sendDo(static_cast<char>(enumVal(TelnetSettings::NAWS)), true);
     stringstream naws_accept_ss;
     naws_accept_ss << enumVal(TelnetSettings::IAC) << enumVal(TelnetSettings::WILL) << enumVal(TelnetSettings::NAWS);
 
@@ -42,7 +47,7 @@ void TelnetTerminal::setTelnetSettings() {
         menu_width_ = terminal_width_ * 3 / 4;
     }
 
-    telnet_server_->sendWont(enumVal(TelnetSettings::LINEMODE), false);
+    telnet_server_->sendWont(static_cast<char>(enumVal(TelnetSettings::LINEMODE)), false);
 }
 
 void TelnetTerminal::menuLoop() {

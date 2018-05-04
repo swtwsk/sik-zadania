@@ -82,13 +82,12 @@ private:
     std::string foregroundColorSetting(ForegroundColor fc);
     std::string backgroundColorSetting(BackgroundColor bc);
     std::string brightDisplaySetting();
-    std::string resetColorSetting();
 
     std::string sendIac(TelnetSettings ts, char option, bool read_response);
 
     using ServerPtr = std::unique_ptr<Server>;
 
-    ServerPtr server_;
+    ServerPtr server_{};
 };
 
 #endif //TELNET_H
