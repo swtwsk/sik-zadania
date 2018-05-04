@@ -1,8 +1,10 @@
 #include <iostream>
 #include <sstream>
+#include <memory>
 
 #include "Server.h"
 #include "TelnetServer.h"
+#include "TelnetTerminal.h"
 
 int main(int argc, char *argv[]) {
     if (argc != 2) {
@@ -18,8 +20,8 @@ int main(int argc, char *argv[]) {
     }
 
     try {
-        TelnetServer telnetServer(port);
-        telnetServer.handleTelnetConnection();
+        TelnetTerminal telnet_terminal(std::make_unique<TelnetServer>(port));
+        telnet_terminal.handleClient();
     }
     catch (ServerException &e) {
         std::cerr << e.what() << std::endl;

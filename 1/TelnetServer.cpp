@@ -1,72 +1,47 @@
 #include <iostream>
+#include <sstream>
 #include "TelnetServer.h"
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wmissing-noreturn"
-
-void TelnetServer::handleTelnetConnection() {
-    while(true) {
+void TelnetServer::acceptTelnetConnection() {
+    while (true) {
         try {
             server_->acceptConnection();
             std::cout << "Connection accepted" << std::endl;
-
-            telnetSettings();
-            menuLoop();
-
-            server_->endConnection();
-            std::cout << "Connection closed" << std::endl;
+            return;
         }
         catch (ServerClientConnectionException &e) {
             std::cerr << e.what() << std::endl;
         }
     }
 }
-
-void TelnetServer::telnetSettings() {
-    sendWill(enumValue(TelnetSettings::ECHO));
-    server_->readClient(3);
-    sendWill(enumValue(TelnetSettings::SUPPRESS_GO_AHEAD));
-    server_->readClient(3);
-    sendDo(enumValue(TelnetSettings::NAWS));
-    std::string client_message = server_->readClient(3);
-
-    auto csv = std::bind(enumValue<TelnetSettings>, std::placeholders::_1);
-    using ts = TelnetSettings;
-    std::stringstream naws_accept_ss;
-    naws_accept_ss << csv(ts::IAC) << csv(ts::WILL) << csv(ts::NAWS);
-
-    if (client_message == naws_accept_ss.str()) {
-        std::string dimensions = server_->readClient(9);
-        terminal_width_ = (unsigned char) dimensions[4];
-        terminal_height_ = (unsigned char) dimensions[6];
-        menu_width_ = terminal_width_ * 3 / 4;
-        std::cout << "h: " << terminal_height_ << ", w: " << terminal_width_ << '\n';
-    } else {
-        std::cout << "NAWS NOT ACCEPTED\n";
+void TelnetServer::endTelnetConnection() {
+    try {
+        server_->endConnection();
+        std::cout << "Connection closed" << std::endl;
     }
-
-    sendWont(enumValue(TelnetSettings::LINEMODE));
+    catch (ServerClientConnectionException &e) {
+        std::cerr << e.what() << std::endl;
+    }
 }
 
 void TelnetServer::clearScreen() {
+    static const std::string GO_UP_SCREEN_CODE = "\x1B[H\x1B[J";
     static const std::string CLEAR_SCREEN_CODE = "\x1B[2J";
-    server_->writeToClient(CLEAR_SCREEN_CODE);
+    sendString(GO_UP_SCREEN_CODE);
+    sendString(CLEAR_SCREEN_CODE, BackgroundColor::BLACK);
 }
 
 void TelnetServer::setCursorPosition(int line, int column) {
     static const std::string SET_CURSOR_CODE_PREF = "\x1B[";
     static const std::string SET_CURSOR_CODE_SUFF = "H";
 
-    std::string to_write = SET_CURSOR_CODE_PREF;
-    to_write += std::to_string(line);
-    to_write += ";";
-    to_write += std::to_string(column);
-    to_write += SET_CURSOR_CODE_SUFF;
+    std::stringstream to_write;
+    to_write << SET_CURSOR_CODE_PREF << std::to_string(line) << ";" << std::to_string(column) << SET_CURSOR_CODE_SUFF;
 
-    server_->writeToClient(to_write);
+    sendString(to_write.str());
 }
 
-std::string TelnetServer::changeForegroundColorSetting(ForegroundColor fc) {
+std::string TelnetServer::foregroundColorSetting(ForegroundColor fc) {
     static const std::string SET_FOREGROUND_COLOR_PREF = "\x1B[";
     static const std::string SET_FOREGROUND_COLOR_SUFF = "m";
 
@@ -77,7 +52,7 @@ std::string TelnetServer::changeForegroundColorSetting(ForegroundColor fc) {
     return to_write.str();
 }
 
-std::string TelnetServer::changeBackgroundColorSetting(BackgroundColor bc) {
+std::string TelnetServer::backgroundColorSetting(BackgroundColor bc) {
     static const std::string SET_BACKGROUND_COLOR_PREF = "\x1B[";
     static const std::string SET_BACKGROUND_COLOR_SUFF = "m";
 
@@ -88,7 +63,7 @@ std::string TelnetServer::changeBackgroundColorSetting(BackgroundColor bc) {
     return to_write.str();
 }
 
-std::string TelnetServer::changeBrightDisplaySetting() {
+std::string TelnetServer::brightDisplaySetting() {
     static const std::string RESET_DISPLAY_ATTR = "\x1B[1m";
     return RESET_DISPLAY_ATTR;
 }
@@ -98,7 +73,7 @@ std::string TelnetServer::resetColorSetting() {
     return RESET_DISPLAY_ATTR;
 }
 
-TelnetServer::Key TelnetServer::keyDownLoop() {
+TelnetServer::Key TelnetServer::readKeyDown() {
     const static char NULL_CHAR = '\0';
     const static char CR = '\15';
     const static char LF = '\12';
@@ -108,15 +83,20 @@ TelnetServer::Key TelnetServer::keyDownLoop() {
 
     while (true) {
         char c = server_->readCharacter();
-        if (c == '\x1B') {
+        if (c == ESCAPE_CHARACTER) {
             c = server_->readCharacter();
             if (c == '[') {
                 c = server_->readCharacter();
-                if (c == ARROW_UP_SUFF_CHAR) {
-                    return Key::UP;
-                }
-                else if (c == ARROW_DOWN_SUFF_CHAR) {
-                    return Key::DOWN;
+
+                switch(c) {
+                    case ARROW_UP_SUFF_CHAR:
+                        return Key::UP;
+
+                    case ARROW_DOWN_SUFF_CHAR:
+                        return Key::DOWN;
+
+                    default:
+                        break;
                 }
             }
         }
@@ -129,269 +109,58 @@ TelnetServer::Key TelnetServer::keyDownLoop() {
     }
 }
 
-void TelnetServer::menuLoop() {
-    MenuState active_menu = mainMenuA();
-    while (true) {
-        try {
-            active_menu = ((*this).*active_menu)();
-            if (active_menu == &TelnetServer::mainMenuSendEnd) {
-                return;
-            }
-        }
-        catch (ServerClientDisconnectedException &e) {
-            return;
-        }
-    }
-}
-
-TelnetServer::MenuState_ TelnetServer::mainMenuA() {
-    showMainMenu(1);
-
-    while (true) {
-        Key keyDown = keyDownLoop();
-        if (keyDown == Key::DOWN) {
-            return &TelnetServer::mainMenuB;
-        }
-        else if (keyDown == Key::ENTER) {
-            chosen_option_ = "A";
-            showMainMenu(1);
-        }
-    }
-}
-
-TelnetServer::MenuState_ TelnetServer::mainMenuB() {
-    showMainMenu(2);
-
-    while (true) {
-        Key keyDown = keyDownLoop();
-        if (keyDown == Key::DOWN) {
-            return &TelnetServer::mainMenuEnd;
-        }
-        else if (keyDown == Key::UP) {
-            return &TelnetServer::mainMenuA;
-        }
-        else if (keyDown == Key::ENTER) {
-            chosen_option_ = "";
-            return &TelnetServer::bMenuB1;
-        }
-    }
-}
-
-TelnetServer::MenuState_ TelnetServer::mainMenuEnd() {
-    showMainMenu(3);
-
-    while (true) {
-        Key keyDown = keyDownLoop();
-        if (keyDown == Key::UP) {
-            return &TelnetServer::mainMenuB;
-        }
-        else if (keyDown == Key::ENTER) {
-            return &TelnetServer::mainMenuSendEnd;
-        }
-    }
-}
-
-TelnetServer::MenuState_ TelnetServer::mainMenuSendEnd() {
-    server_->writeToClient('\n');
-    return &TelnetServer::mainMenuSendEnd;
-}
-
-TelnetServer::MenuState_ TelnetServer::bMenuB1() {
-    showBMenu(1);
-
-    while (true) {
-        Key keyDown = keyDownLoop();
-        if (keyDown == Key::DOWN) {
-            return &TelnetServer::bMenuB2;
-        }
-        else if (keyDown == Key::ENTER) {
-            chosen_option_ = "B1";
-            showBMenu(1);
-        }
-    }
-}
-
-TelnetServer::MenuState_ TelnetServer::bMenuB2() {
-    showBMenu(2);
-
-    while (true) {
-        Key keyDown = keyDownLoop();
-        if (keyDown == Key::DOWN) {
-            return &TelnetServer::bMenuReturn;
-        }
-        else if (keyDown == Key::UP) {
-            return &TelnetServer::bMenuB1;
-        }
-        else if (keyDown == Key::ENTER) {
-            chosen_option_ = "B2";
-            showBMenu(2);
-        }
-    }
-}
-
-TelnetServer::MenuState_ TelnetServer::bMenuReturn() {
-    showBMenu(3);
-
-    while (true) {
-        Key keyDown = keyDownLoop();
-        if (keyDown == Key::UP) {
-            return &TelnetServer::bMenuB2;
-        }
-        else if (keyDown == Key::ENTER) {
-            chosen_option_ = "";
-            return &TelnetServer::mainMenuB;
-        }
-    }
-}
-
-void TelnetServer::showMenu(int option_number, const std::vector<std::string> &menu_options) {
-    using std::string;
-
-    const int MENU_HEIGHT = 7; // 1 (border) + 3 (options) + 1 (border) + 1 (chosen) + 1 (border)
-
-    //clearScreen();
-    setCursorPosition(1, 0);
-    string blue_background = changeBackgroundColorSetting(BackgroundColor::BLUE);
-    string magenta_background = changeBackgroundColorSetting(BackgroundColor::MAGENTA);
-    string white_foreground = changeForegroundColorSetting(ForegroundColor::WHITE);
-
-    unsigned int line = 1;
-    setCursorPosition(line, 0);
-
-    auto sign_count = (terminal_width_ - menu_width_) / 2 - 1;
-    string background_signs = string(sign_count, ' ');
-
-    for (size_t i = 0; i < (terminal_height_ - MENU_HEIGHT) / 2; ++i) {
-        server_->writeToClient(blue_background + string(terminal_width_, ' '));
-        ++line;
-        setCursorPosition(line, 0);
-    }
-
-    /* Upper border */
-    string to_write;
-    to_write = blue_background + background_signs;
-    to_write += magenta_background;
-    to_write += white_foreground;
-    to_write += "\x1B(0\x6c";
-    to_write += string(menu_width_, '\x71');
-    to_write += "\x6b\x1B(B";
-    to_write += resetColorSetting();
-    to_write += blue_background + background_signs;
-    to_write += '\n';
-    server_->writeToClient(to_write);
-    ++line;
-    setCursorPosition(line, 0);
-
-    first_option_line_ = line;
-
-    /* Options menu */
-    for (auto &option : menu_options) {
-        to_write = blue_background + background_signs;
-        to_write += magenta_background;
-        to_write += white_foreground;
-        to_write += "\x1B(0\x78\x1B(B";
-        to_write += changeBrightDisplaySetting();
-        to_write += option;
-        to_write += string(menu_width_ - option.size(), ' ');
-        to_write += resetColorSetting();
-        to_write += magenta_background;
-        to_write += "\x1B(0\x78\x1B(B";
-        to_write += resetColorSetting();
-        to_write += blue_background + background_signs;
-        to_write += '\n';
-        server_->writeToClient(to_write);
-        ++line;
-        setCursorPosition(line, 0);
-    }
-
-    /* In-between border */
-    to_write = blue_background + background_signs;
-    to_write += magenta_background;
-    to_write += "\x1B(0\x74";
-    to_write += string(menu_width_, '\x71');
-    to_write += resetColorSetting();
-    to_write += magenta_background;
-    to_write += "\x75\x1B(B";
-    to_write += resetColorSetting();
-    to_write += blue_background + background_signs;
-    to_write += '\n';
-    server_->writeToClient(to_write);
-    ++line;
-    setCursorPosition(line, 0);
-
-    /* Chosen option */
-    to_write = blue_background + background_signs;
-    to_write += magenta_background;
-    to_write += white_foreground;
-    to_write += "\x1B(0\x78\x1B(B";
-    to_write += changeBrightDisplaySetting();
-    to_write += chosen_option_;
-    to_write += string(menu_width_ - chosen_option_.size(), ' ');
-    to_write += resetColorSetting();
-    to_write += magenta_background;
-    to_write += "\x1B(0\x78\x1B(B";
-    to_write += resetColorSetting();
-    to_write += blue_background + background_signs;
-    to_write += '\n';
-    server_->writeToClient(to_write);
-    ++line;
-    setCursorPosition(line, 0);
-
-    /* Bottom border */
-    to_write = blue_background + background_signs;
-    to_write += magenta_background;
-    to_write += "\x1B(0\x6d";
-    to_write += string(menu_width_, '\x71');
-    to_write += "\x6a\x1B(B";
-    to_write += resetColorSetting();
-    to_write += blue_background + background_signs;
-    to_write += '\n';
-    server_->writeToClient(to_write);
-    ++line;
-    setCursorPosition(line, 0);
-
-    for (size_t i = line; i < terminal_height_; ++i) {
-        server_->writeToClient(string(terminal_width_, ' '));
-        server_->writeToClient('\n');
-        ++line;
-        setCursorPosition(line, 0);
-    }
-    server_->writeToClient(string(terminal_width_, ' '));
-
-    setCursorPosition(first_option_line_ + option_number - 1, (int) sign_count + 2);
-}
-
-void TelnetServer::showMainMenu(int option_number) {
-    static const std::vector<std::string> main_menu_options = { "Opcja A", "Opcja B", "Koniec" };
-    showMenu(option_number, main_menu_options);
-}
-
-void TelnetServer::showBMenu(int option_number) {
-    static const std::vector<std::string> b_menu_options = { "Opcja B1", "Opcja B2", "Wstecz" };
-    showMenu(option_number, b_menu_options);
-}
-
-void TelnetServer::sendIac(TelnetServer::TelnetSettings ts, char option) {
+std::string TelnetServer::sendIac(TelnetServer::TelnetSettings ts, char option, bool read_response) {
     std::stringstream msgOption;
     msgOption << enumValue(TelnetSettings::IAC) << enumValue(ts) << option;
     server_->writeToClient(msgOption.str());
+
+    return (read_response ? server_->readClient(3) : "");
 }
 
-void TelnetServer::sendWill(char option) {
-    sendIac(TelnetSettings::WILL, option);
+std::string TelnetServer::sendWill(char option, bool read_response) {
+    return sendIac(TelnetSettings::WILL, option, read_response);
 }
 
-void TelnetServer::sendWont(char option) {
-    sendIac(TelnetSettings::WONT, option);
+std::string TelnetServer::sendWont(char option, bool read_response) {
+    return sendIac(TelnetSettings::WONT, option, read_response);
 }
 
-void TelnetServer::sendDo(char option) {
-    sendIac(TelnetSettings::DO, option);
+std::string TelnetServer::sendDo(char option, bool read_response) {
+    return sendIac(TelnetSettings::DO, option, read_response);
 }
 
-template<class Enum>
-constexpr typename std::underlying_type_t<Enum> TelnetServer::enumValue(Enum t) {
-    return static_cast<typename std::underlying_type<Enum>::type>(t);
+std::pair<size_t, size_t> TelnetServer::readNAWS() {
+    // NAWS client dimensions information is in format:
+    // IAC SB NAWS 0 WIDTH 0 HEIGHT IAC SE
+    std::string dimensions = server_->readClient(9);
+
+    size_t width = static_cast<size_t>(static_cast<unsigned char>(dimensions[4]));
+    size_t height = static_cast<size_t>(static_cast<unsigned char>(dimensions[6]));
+
+    return std::make_pair(width, height);
 }
 
-#pragma clang diagnostic pop
+void TelnetServer::sendString(const std::string &message) {
+    server_->writeToClient(message);
+}
+
+void TelnetServer::sendString(const std::string &message, BackgroundColor background_color) {
+    std::stringstream message_to_write;
+
+    message_to_write << backgroundColorSetting(background_color) << message;
+
+    server_->writeToClient(message_to_write.str());
+}
+
+void TelnetServer::sendString(const std::string &message, ForegroundColor foreground_color,
+                              BackgroundColor background_color, bool bright_display) {
+    std::stringstream message_to_write;
+
+    message_to_write << backgroundColorSetting(background_color) << foregroundColorSetting(foreground_color);
+    if (bright_display) {
+        message_to_write << brightDisplaySetting();
+    }
+    message_to_write << message;
+
+    server_->writeToClient(message_to_write.str());
+}
