@@ -10,15 +10,7 @@ using std::stringstream;
 TelnetTerminal::TelnetTerminal(std::unique_ptr<TelnetServer> telnet_server)
     : telnet_server_(std::move(telnet_server)), terminal_width_(DEFAULT_TERMINAL_WIDTH),
       terminal_height_(DEFAULT_TERMINAL_HEIGHT), menu_width_(DEFAULT_MENU_WIDTH),
-      first_option_line_(DEFAULT_FIRST_OPTION_LINE), chosen_option_("") {
-
-    /*option_lines_[&TelnetTerminal::mainMenuA] = 1;
-    option_lines_[&TelnetTerminal::mainMenuB] = 2;
-    option_lines_[&TelnetTerminal::mainMenuEnd] = 3;
-    option_lines_[&TelnetTerminal::bMenuB1] = 1;
-    option_lines_[&TelnetTerminal::bMenuB2] = 2;
-    option_lines_[&TelnetTerminal::bMenuReturn] = 3;*/
-}
+      first_option_line_(DEFAULT_FIRST_OPTION_LINE), chosen_option_("") {}
 
 void TelnetTerminal::handleClient() {
     while (true) {
@@ -64,14 +56,12 @@ void TelnetTerminal::menuLoop() {
             }
         }
     }
-    catch (ServerClientDisconnectedException & e) {
+    catch (ServerClientDisconnectedException &e) {
         return;
     }
 }
 
 TelnetTerminal::MenuState_ TelnetTerminal::mainMenuA() {
-    // TODO: Check if it does work!
-    //showMainMenu(option_lines_[&TelnetTerminal::mainMenuA]);
     const static char MAIN_MENU_A_OPTION = 'A';
     const static int MAIN_MENU_A_LINE = 1;
     showMainMenu(MAIN_MENU_A_LINE);
@@ -170,7 +160,7 @@ TelnetTerminal::MenuState_ TelnetTerminal::bMenuB2() {
     while (true) {
         Key keyDown = telnet_server_->readKeyDown();
 
-        switch(keyDown) {
+        switch (keyDown) {
             case Key::DOWN:
                 return &TelnetTerminal::bMenuReturn;
 
@@ -191,7 +181,7 @@ TelnetTerminal::MenuState_ TelnetTerminal::bMenuReturn() {
     while (true) {
         Key keyDown = telnet_server_->readKeyDown();
 
-        switch(keyDown) {
+        switch (keyDown) {
             case Key::UP:
                 return &TelnetTerminal::bMenuB2;
 

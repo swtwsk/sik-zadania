@@ -88,7 +88,7 @@ TelnetServer::Key TelnetServer::readKeyDown() {
             if (c == '[') {
                 c = server_->readCharacter();
 
-                switch(c) {
+                switch (c) {
                     case ARROW_UP_SUFF_CHAR:
                         return Key::UP;
 

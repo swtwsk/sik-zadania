@@ -90,7 +90,6 @@ void Server::endConnection() {
     }
 }
 
-
 /** ServerException **/
 const char *ServerException::what() const noexcept {
     return error_msg_.c_str();

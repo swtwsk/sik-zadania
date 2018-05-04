@@ -2,7 +2,6 @@
 #define TELNETTERMINAL_H
 
 #include <memory>
-#include <map>
 #include "TelnetServer.h"
 
 class TelnetTerminal {
@@ -66,8 +65,6 @@ private:
     size_t menu_width_;
     int first_option_line_;
     std::string chosen_option_;
-
-    std::map<MenuState, int> option_lines_;
 };
 
 #endif //TELNETTERMINAL_H
