@@ -64,13 +64,18 @@ std::string Server::readClient(size_t len) {
 }
 
 char Server::readCharacter() {
-    char readChar;
+    char read_char;
 
-    if (read(client_sock, &readChar, sizeof(readChar))< 0) {
+    ssize_t read_len = read(client_sock, &read_char, sizeof(read_char));
+    if (read_len <= 0) {
+        if (read_len == 0) {
+            throw ServerClientDisconnectedException();
+        }
+
         throw ServerClientConnectionException();
     }
 
-    return readChar;
+    return read_char;
 }
 
 void Server::writeClient(int character) {

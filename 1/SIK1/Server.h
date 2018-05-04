@@ -51,8 +51,15 @@ public:
 
 class ServerClientConnectionException : public ServerException {
 public:
-    explicit ServerClientConnectionException()
-            : ServerException("client connection error") {}
+    ServerClientConnectionException() : ServerException("client connection error") {}
+    explicit ServerClientConnectionException(const std::string &connection_error)
+            : ServerException(connection_error) {}
+
+};
+
+class ServerClientDisconnectedException : public ServerClientConnectionException {
+public:
+    ServerClientDisconnectedException() : ServerClientConnectionException("client disconnected") {}
 };
 
 #endif //TCPSOCKET_H
