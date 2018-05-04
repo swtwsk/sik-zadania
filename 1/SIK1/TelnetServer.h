@@ -35,8 +35,8 @@ public:
     using PortType = Server::PortType;
 
     explicit TelnetServer(TelnetServer::PortType port)
-            : server_(std::make_unique<Server>(port)), chosen_option_(""),
-              terminal_width_(80), terminal_height_(24), menu_width_(60), first_option_line_((80 - 7) / 2 + 2) {}
+            : server_(std::make_unique<Server>(port)), terminal_width_(80), terminal_height_(24),
+              menu_width_(60), first_option_line_((80 - 7) / 2 + 2), chosen_option_("") {}
 
     void handleTelnetConnection();
 
@@ -104,8 +104,8 @@ private:
     using ServerPtr = std::unique_ptr<Server>;
 
     ServerPtr server_;
-    size_t terminal_height_;
     size_t terminal_width_;
+    size_t terminal_height_;
     size_t menu_width_;
     int first_option_line_;
     std::string chosen_option_;
