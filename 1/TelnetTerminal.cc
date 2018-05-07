@@ -30,6 +30,7 @@ void TelnetTerminal::handleClient() {
 }
 
 void TelnetTerminal::setTelnetSettings() {
+    telnet_server_->sendWont(TELOPT_LINEMODE, false);
     telnet_server_->sendWill(TELOPT_ECHO, true);
     telnet_server_->sendWill(TELOPT_SGA, true); // SUPPRESS_GO_AHEAD
 
@@ -44,8 +45,6 @@ void TelnetTerminal::setTelnetSettings() {
         terminal_height_ = dimensions.second;
         menu_width_ = terminal_width_ * 3 / 4;
     }
-
-    telnet_server_->sendWont(TELOPT_LINEMODE, false);
 }
 
 void TelnetTerminal::menuLoop() {
