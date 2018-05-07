@@ -31,7 +31,7 @@ void TelnetTerminal::handleClient() {
 
 void TelnetTerminal::setTelnetSettings() {
     telnet_server_->sendWill(TELOPT_ECHO, true);
-    telnet_server_->sendWill(TELOPT_SGA, true);
+    telnet_server_->sendWill(TELOPT_SGA, true); // SUPPRESS_GO_AHEAD
 
     // Negotiate NAWS with client
     string client_message = telnet_server_->sendDo(TELOPT_NAWS, true);
@@ -78,7 +78,7 @@ TelnetTerminal::MenuState_ TelnetTerminal::mainMenuA() {
 
             case Key::ENTER:
                 chosen_option_ = MAIN_MENU_A_OPTION;
-                showMainMenu(1);
+                showMainMenu(MAIN_MENU_A_LINE);
 
             default:
                 break;

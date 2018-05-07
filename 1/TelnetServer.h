@@ -12,7 +12,7 @@ class TelnetServer {
 public:
     using PortType = Server::PortType;
 
-    explicit TelnetServer(TelnetServer::PortType port) : server_(std::make_unique<Server>(port)) {}
+    explicit TelnetServer(TelnetServer::PortType port);
 
     enum class ForegroundColor : int {
         BLACK = 30,

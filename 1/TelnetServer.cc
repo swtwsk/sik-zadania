@@ -3,6 +3,8 @@
 #include <arpa/telnet.h>
 #include "TelnetServer.h"
 
+TelnetServer::TelnetServer(TelnetServer::PortType port) : server_(std::make_unique<Server>(port)) {}
+
 void TelnetServer::acceptTelnetConnection() {
     while (true) {
         try {
