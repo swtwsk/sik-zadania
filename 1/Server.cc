@@ -13,7 +13,7 @@ Server::Server(PortType port) {
     server_address.sin_addr.s_addr = htonl(INADDR_ANY);
     server_address.sin_port = htons(port);
 
-    if (bind(sock, (sockaddr *) &server_address, sizeof(server_address)) < 0) {
+    if (bind(sock, reinterpret_cast<struct sockaddr *>(&server_address), sizeof(server_address)) < 0) {
         throw ServerCreateException("bind");
     }
 
@@ -22,9 +22,13 @@ Server::Server(PortType port) {
     }
 }
 
+Server::~Server() {
+    close(sock);
+}
+
 void Server::acceptConnection() {
     client_address_len = sizeof(client_address);
-    client_sock = accept(sock, (struct sockaddr *) &client_address, &client_address_len); // blocking operation
+    client_sock = accept(sock, reinterpret_cast<struct sockaddr *>(&client_address), &client_address_len); // blocking operation
     if (client_sock < 0) {
         throw ServerClientConnectionException();
     }
@@ -51,6 +55,8 @@ std::string Server::readClient(size_t len) {
 
         memset(buffer, 0, len);
     } while (left_to_read > 0);
+
+    delete[] buffer;
 
     return read_message;
 }

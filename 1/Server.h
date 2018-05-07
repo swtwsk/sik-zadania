@@ -14,6 +14,7 @@ public:
     using PortType = uint16_t;
 
     explicit Server(PortType port);
+    ~Server();
 
     void acceptConnection();
     void endConnection();

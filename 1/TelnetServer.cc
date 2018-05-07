@@ -7,7 +7,7 @@ void TelnetServer::acceptTelnetConnection() {
     while (true) {
         try {
             server_->acceptConnection();
-            std::cout << "Connection accepted" << std::endl;
+            std::cout << "Connection accepted - client has been connected" << std::endl;
             return;
         }
         catch (ServerClientConnectionException &e) {
@@ -18,7 +18,7 @@ void TelnetServer::acceptTelnetConnection() {
 void TelnetServer::endTelnetConnection() {
     try {
         server_->endConnection();
-        std::cout << "Connection closed" << std::endl;
+        std::cout << "Connection closed - client disconnected" << std::endl;
     }
     catch (ServerClientConnectionException &e) {
         std::cerr << e.what() << std::endl;
@@ -77,8 +77,15 @@ TelnetServer::Key TelnetServer::readKeyDown() {
     const static char ARROW_UP_SUFF_CHAR = 'A';
     const static char ARROW_DOWN_SUFF_CHAR = 'B';
 
+    bool read_character = false;
+    char c;
+
     while (true) {
-        char c = server_->readCharacter();
+        if (!read_character) {
+            c = server_->readCharacter();
+            read_character = true;
+        }
+
         if (c == ESCAPE_CHARACTER) {
             c = server_->readCharacter();
             if (c == '[') {
@@ -101,6 +108,9 @@ TelnetServer::Key TelnetServer::readKeyDown() {
             if (c == NULL_CHAR || c == LF) {
                 return Key::ENTER;
             }
+        }
+        else {
+            read_character = false;
         }
     }
 }
