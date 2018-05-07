@@ -1,5 +1,6 @@
 #include <iostream>
 #include <sstream>
+#include <arpa/telnet.h>
 #include "TelnetServer.h"
 
 void TelnetServer::acceptTelnetConnection() {
@@ -104,24 +105,24 @@ TelnetServer::Key TelnetServer::readKeyDown() {
     }
 }
 
-std::string TelnetServer::sendIac(TelnetServer::TelnetSettings ts, char option, bool read_response) {
+std::string TelnetServer::sendIac(int command, char option, bool read_response) {
     std::stringstream msgOption;
-    msgOption << enumValue(TelnetSettings::IAC) << enumValue(ts) << option;
+    msgOption << static_cast<char>(IAC) << static_cast<char>(command) << option;
     server_->writeToClient(msgOption.str());
 
     return (read_response ? server_->readClient(3) : "");
 }
 
 std::string TelnetServer::sendWill(char option, bool read_response) {
-    return sendIac(TelnetSettings::WILL, option, read_response);
+    return sendIac(WILL, option, read_response);
 }
 
 std::string TelnetServer::sendWont(char option, bool read_response) {
-    return sendIac(TelnetSettings::WONT, option, read_response);
+    return sendIac(WONT, option, read_response);
 }
 
 std::string TelnetServer::sendDo(char option, bool read_response) {
-    return sendIac(TelnetSettings::DO, option, read_response);
+    return sendIac(DO, option, read_response);
 }
 
 std::pair<size_t, size_t> TelnetServer::readNAWS() {

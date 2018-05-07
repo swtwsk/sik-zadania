@@ -36,18 +36,6 @@ public:
         WHITE = 47,
     };
 
-    enum class TelnetSettings : char {
-        IAC = '\377',
-        WILL = '\373',
-        WONT = '\374',
-        DO = '\375',
-        ECHO = '\1',
-        SUPPRESS_GO_AHEAD = '\3',
-        LINEMODE = '\42',
-        NAWS = '\37',
-        SE = '\360',
-    };
-
     template <class Enum>
     static constexpr typename std::underlying_type_t<Enum> enumValue(Enum t) {
         return static_cast<typename std::underlying_type<Enum>::type>(t);
@@ -83,7 +71,7 @@ private:
     std::string backgroundColorSetting(BackgroundColor bc);
     std::string brightDisplaySetting();
 
-    std::string sendIac(TelnetSettings ts, char option, bool read_response);
+    std::string sendIac(int command, char option, bool read_response);
 
     using ServerPtr = std::unique_ptr<Server>;
 

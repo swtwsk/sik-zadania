@@ -52,7 +52,7 @@ private:
     void showBMenu(int option_number);
 
     /* Based on VT100 display size */
-    /* It seems it is also a standard for all kinds of Linux terminal (especially GNOME) */
+    /* It seems it is also a standard for all kinds of Linux terminals (especially GNOME) */
     constexpr static size_t DEFAULT_TERMINAL_WIDTH = 80;
     constexpr static size_t DEFAULT_TERMINAL_HEIGHT = 24;
     constexpr static size_t DEFAULT_MENU_WIDTH = DEFAULT_TERMINAL_WIDTH * 3 / 4;

@@ -1,6 +1,7 @@
 #include <iostream>
 #include <sstream>
 #include <utility>
+#include <arpa/telnet.h>
 #include "TelnetTerminal.h"
 
 using Key = TelnetServer::Key;
@@ -29,16 +30,13 @@ void TelnetTerminal::handleClient() {
 }
 
 void TelnetTerminal::setTelnetSettings() {
-    using TelnetSettings = TelnetServer::TelnetSettings;
-    auto enumVal = std::bind(TelnetServer::enumValue<TelnetSettings>, std::placeholders::_1);
-
-    telnet_server_->sendWill(static_cast<char>(enumVal(TelnetSettings::ECHO)), true);
-    telnet_server_->sendWill(static_cast<char>(enumVal(TelnetSettings::SUPPRESS_GO_AHEAD)), true);
+    telnet_server_->sendWill(TELOPT_ECHO, true);
+    telnet_server_->sendWill(TELOPT_SGA, true);
 
     // Negotiate NAWS with client
-    string client_message = telnet_server_->sendDo(static_cast<char>(enumVal(TelnetSettings::NAWS)), true);
+    string client_message = telnet_server_->sendDo(TELOPT_NAWS, true);
     stringstream naws_accept_ss;
-    naws_accept_ss << enumVal(TelnetSettings::IAC) << enumVal(TelnetSettings::WILL) << enumVal(TelnetSettings::NAWS);
+    naws_accept_ss << static_cast<char>(IAC) << static_cast<char>(WILL) << static_cast<char>(TELOPT_NAWS);
 
     if (client_message == naws_accept_ss.str()) {
         auto dimensions = telnet_server_->readNAWS();
@@ -47,7 +45,7 @@ void TelnetTerminal::setTelnetSettings() {
         menu_width_ = terminal_width_ * 3 / 4;
     }
 
-    telnet_server_->sendWont(static_cast<char>(enumVal(TelnetSettings::LINEMODE)), false);
+    telnet_server_->sendWont(TELOPT_LINEMODE, false);
 }
 
 void TelnetTerminal::menuLoop() {
