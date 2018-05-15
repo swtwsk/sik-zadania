@@ -25,7 +25,7 @@ public:
     void writeToClient(const std::string &msg);
 
 private:
-    const int QUEUE_LENGTH = 5;
+    const int QUEUE_LENGTH = 32;
 
     int sock;
     int client_sock;
