@@ -1,51 +1,33 @@
 #include <iostream>
 #include <algorithm>
-#include <string>
-#include <sstream>
-#include <memory>
-#include <netinet/in.h>
 #include <cstring>
+#include <sstream>
+#include <string>
+#include <netinet/in.h>
 
-struct Transmitter {
-    const uint64_t DEFAULT_DATA_PORT = 26085;
-    const uint64_t DEFAULT_CTRL_PORT = 36085;
-    const uint64_t DEFAULT_PSIZE = 512;
-    const uint64_t DEFAULT_FSIZE = 131072;
-    const uint64_t DEFAULT_RTIME = 250;
-    const std::string DEFAULT_NAZWA = "Nienazwany Nadajnik";
+#include "Transmitter.h"
 
-    std::string MCAST_ADDR;
-    uint64_t DATA_PORT;
-    uint64_t CTRL_PORT;
-    uint64_t PSIZE;
-    uint64_t FSIZE;
-    uint64_t RTIME;
-    std::string NAZWA;
-
-    Transmitter(const std::string &MCAST_ADDR_ARG)
-        : MCAST_ADDR(MCAST_ADDR_ARG), DATA_PORT(DEFAULT_DATA_PORT), CTRL_PORT(DEFAULT_CTRL_PORT), PSIZE(DEFAULT_PSIZE),
-          FSIZE(DEFAULT_FSIZE), RTIME(DEFAULT_RTIME), NAZWA(DEFAULT_NAZWA) {}
-};
-
-std::pair<bool, char **> cmdOptionExists(char** begin, char** end, const std::string& option)
-{
+std::pair<bool, char **> cmdOptionExists(char** begin, char** end, const std::string& option) {
     char **it = std::find(begin, end, option);
     return std::make_pair(it != end && ++it != end, it);
 }
 
 int parseCommandLineArgs(int argc, char *argv[], std::unique_ptr<Transmitter> &transmitter) {
     if ((argc - 1) % 2 != 0) {
-        std::cout << "Wrong number of arguments" << std::endl;
+        std::cerr << "Wrong number of arguments" << std::endl;
         return 1;
     }
 
     auto mcast_addr_arg_pair = cmdOptionExists(argv, argv + argc, "-a");
     if (!mcast_addr_arg_pair.first) {
-        std::cout << "Usage: " << argv[0] << " -a MCAST_ADDR" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " -a mcast_addr_" << std::endl;
         return 1;
     }
 
     transmitter = std::make_unique<Transmitter>(*(mcast_addr_arg_pair.second));
+
+    uint64_t unsigned_arg;
+    in_port_t port_arg;
 
     for (int i = 1; i < argc; i += 2) {
         if (!strcmp(argv[i], "-a")) {
@@ -53,50 +35,56 @@ int parseCommandLineArgs(int argc, char *argv[], std::unique_ptr<Transmitter> &t
         }
         else if (!strcmp(argv[i], "-P")) {
             std::istringstream ss(argv[i + 1]);
-            if (!(ss>>transmitter->DATA_PORT)) {
-                std::cout << "Invalid DATA_PORT argument" << std::endl;
+            if (!(ss >> port_arg)) {
+                std::cerr << "Invalid data_port_ argument" << std::endl;
                 return 1;
             }
+            transmitter->setDataPort(port_arg);
         }
         else if (!strcmp(argv[i], "-C")) {
             std::istringstream ss(argv[i + 1]);
-            if (!(ss>>transmitter->CTRL_PORT)) {
-                std::cout << "Invalid CTRL_PORT argument" << std::endl;
+            if (!(ss >> port_arg)) {
+                std::cerr << "Invalid ctrl_port_ argument" << std::endl;
                 return 1;
             }
+            transmitter->setCtrlPort(port_arg);
         }
         else if (!strcmp(argv[i], "-p")) {
             std::istringstream ss(argv[i + 1]);
-            if (!(ss>>transmitter->PSIZE)) {
-                std::cout << "Invalid PSIZE argument" << std::endl;
+            if (!(ss >> unsigned_arg)) {
+                std::cerr << "Invalid psize_ argument" << std::endl;
                 return 1;
             }
+            transmitter->setPsize(unsigned_arg);
         }
         else if (!strcmp(argv[i], "-f")) {
             std::istringstream ss(argv[i + 1]);
-            if (!(ss>>transmitter->FSIZE)) {
-                std::cout << "Invalid FSIZE argument" << std::endl;
+            if (!(ss >> unsigned_arg)) {
+                std::cerr << "Invalid fsize_ argument" << std::endl;
                 return 1;
             }
+            transmitter->setFsize(unsigned_arg);
         }
         else if (!strcmp(argv[i], "-R")) {
             std::istringstream ss(argv[i + 1]);
-            if (!(ss>>transmitter->RTIME)) {
-                std::cout << "Invalid RTIME argument" << std::endl;
+            if (!(ss >> unsigned_arg)) {
+                std::cerr << "Invalid rtime_ argument" << std::endl;
                 return 1;
             }
+            transmitter->setRtime(unsigned_arg);
         }
         else if (!strcmp(argv[i], "-n")) {
-            transmitter->NAZWA = std::string(argv[i + 1]);
-            if (transmitter->NAZWA.empty() || transmitter->NAZWA.length() > 64) {
-                std::cout << "Invalid NAZWA argument (should be at most 64 characters)" << std::endl;
+            std::string nazwa = std::string(argv[i + 1]);
+            if (nazwa.empty() || nazwa.length() > 64) {
+                std::cerr << "Invalid nazwa_ argument (should be at most 64 characters)" << std::endl;
                 return 1;
             }
+            transmitter->setNazwa(nazwa);
         }
         else {
-            std::cout << "Invalid arguments, proper usage:\n"
-                         << argv[0] << " -a MCAST_ADDR" << " [-P DATA_PORT]" << " [-C CTRL_PORT]" << " [-p PSIZE]"
-                         << " [-f FSIZE]" << " [-R RTIME]" << " [-n NAZWA]" << std::endl;
+            std::cerr << "Invalid arguments, proper usage:\n"
+                         << argv[0] << " -a mcast_addr_" << " [-P data_port_]" << " [-C ctrl_port_]" << " [-p psize_]"
+                         << " [-f fsize_]" << " [-R rtime_]" << " [-n nazwa_]" << std::endl;
             return 1;
         }
     }
@@ -111,10 +99,15 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    std::cout << "TRANSMITTER:\n  MCAST_ADDR = " << transmitter->MCAST_ADDR
-              << "\n  DATA_PORT = " << transmitter->DATA_PORT << "\n  CTRL_PORT = " << transmitter->CTRL_PORT
-              << "\n  PSIZE = " << transmitter->PSIZE << "\n  FSIZE = " << transmitter->FSIZE
-              << "\n  RTIME = " << transmitter->RTIME << "\n  NAZWA = " << transmitter->NAZWA << std::endl;
+    try {
+        transmitter->startTransmitter();
+    }
+    catch (ServerException &e) {
+        std::cerr << e.what() << std::endl;
+        return 1;
+    }
+
+    transmitter->printTransmitter();
 
     return 0;
 }
