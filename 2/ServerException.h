@@ -30,4 +30,10 @@ public:
         : ServerException("error while creating server for ctrl_port in function: " + function_name) {}
 };
 
+class ServerRunException : public ServerException {
+public:
+    explicit ServerRunException(const std::string &function_name)
+        : ServerException("error while running server in function: " + function_name) {}
+};
+
 #endif //INC_2_SERVEREXCEPTION_H

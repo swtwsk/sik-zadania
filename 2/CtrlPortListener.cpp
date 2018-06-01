@@ -21,6 +21,10 @@ CtrlPortListener::CtrlPortListener(in_port_t ctrl_port, DataQueuePtr data_queue,
         throw CtrlServerCreateException("setsockopt");
     }
 
+    if (setsockopt(sock_, SOL_SOCKET, SO_REUSEADDR, (void*)&ip_mreq_, sizeof ip_mreq_) < 0) {
+        throw CtrlServerCreateException("setsockopt");
+    }
+
     /* podpięcie się pod lokalny adres i port */
     local_address_.sin_family = AF_INET;
     local_address_.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -36,6 +40,8 @@ CtrlPortListener::~CtrlPortListener() {
 
 void CtrlPortListener::printQueue(std::future<void> futureStopper) {
     while(futureStopper.wait_for(std::chrono::seconds(1)) != std::future_status::ready) {
-        std::cout << data_queue_->pop().first << std::endl;
+        if (!data_queue_->empty()) {
+            //std::cout << data_queue_->pop().first << std::endl;
+        }
     }
 }

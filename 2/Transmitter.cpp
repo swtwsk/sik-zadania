@@ -8,7 +8,10 @@
 Transmitter::Transmitter(const std::string &mcast_addr)
     : mcast_addr_(mcast_addr), data_port_(DEFAULT_DATA_PORT), ctrl_port_(DEFAULT_CTRL_PORT), psize_(DEFAULT_PSIZE),
       fsize_(DEFAULT_FSIZE), rtime_(DEFAULT_RTIME), nazwa_(DEFAULT_NAZWA),
-      data_queue_(std::make_shared<DataQueueT>(fsize_)) {}
+      data_queue_(std::make_shared<DataQueueT>(fsize_)) {
+
+    data_size_ = psize_ - 2 * sizeof(uint64_t);
+}
 
 void Transmitter::setDataPort(in_port_t data_port) {
     Transmitter::data_port_ = data_port;
@@ -20,6 +23,7 @@ void Transmitter::setCtrlPort(in_port_t ctrl_port) {
 
 void Transmitter::setPsize(uint64_t psize) {
     Transmitter::psize_ = psize;
+    data_size_ = psize_ - 2 * sizeof(uint64_t);
 }
 
 void Transmitter::setFsize(uint64_t fsize) {
@@ -81,16 +85,66 @@ void Transmitter::startTransmitter() {
 void Transmitter::readStdIn() {
     using std::cin;
 
-    //Byte b;
     std::string s;
+    uint64_t first_byte_num = 0;
+
     while (cin >> s) {
+        std::deque<Byte> readed_bytes;
         for (char b : s) {
-            data_queue_->push(b);
+            data_queue_->push(static_cast<Byte>(b));
+            readed_bytes.push_back(static_cast<Byte>(b));
+        }
+
+        if (readed_bytes.size() >= data_size_) {
+            unsigned char *pack_to_send = pack_up(1, first_byte_num, readed_bytes);
+            std::cout << pack_to_send;
+            writeToClient(pack_to_send, psize_);
         }
     }
 
-    std::cout << "Stopping" << std::endl;
+    //std::cout << "Stopping" << std::endl;
 
     exit_signal_.set_value();
     ctrl_port_thread_.join();
+}
+
+void Transmitter::writeToClient(Transmitter::Byte *data, size_t data_size) {
+    ssize_t len;
+    len = write(sock_, data, data_size);
+    if (static_cast<size_t>(len) != data_size) {
+        throw ServerRunException("Error in write");
+    }
+
+    delete[] data;
+}
+
+Transmitter::Byte *Transmitter::pack_up(uint64_t session_id,
+                                        uint64_t first_byte_num,
+                                        std::deque<Transmitter::Byte> &audio_data) {
+    auto *to_return = new Byte[psize_];
+
+    to_return[0]=session_id>>56&0xFF;
+    to_return[1]=session_id>>48&0xFF;
+    to_return[2]=session_id>>40&0xFF;
+    to_return[3]=session_id>>32&0xFF;
+    to_return[4]=session_id>>24&0xFF;
+    to_return[5]=session_id>>16&0xFF;
+    to_return[6]=session_id>>8&0xFF;
+    to_return[7]=session_id>>0&0xFF;
+
+    to_return[8]=first_byte_num>>56&0xFF;
+    to_return[9]=first_byte_num>>48&0xFF;
+    to_return[10]=first_byte_num>>40&0xFF;
+    to_return[11]=first_byte_num>>32&0xFF;
+    to_return[12]=first_byte_num>>24&0xFF;
+    to_return[13]=first_byte_num>>16&0xFF;
+    to_return[14]=first_byte_num>>8&0xFF;
+    to_return[15]=first_byte_num>>0&0xFF;
+
+    for (auto i = 16; i < psize_; ++i) {
+        to_return[i] = audio_data.front();
+        audio_data.pop_front();
+    }
+
+    return to_return;
 }

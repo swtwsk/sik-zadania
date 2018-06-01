@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <future>
 #include <thread>
+#include <deque>
 
 #include "CtrlPortListener.h"
 #include "ConcurrentQueue.h"
@@ -14,6 +15,8 @@
 
 class Transmitter {
 public:
+    using Byte = uint8_t;
+
     explicit Transmitter(const std::string &mcast_addr);
 
     void setDataPort(in_port_t data_port);
@@ -26,11 +29,12 @@ public:
     void startTransmitter();
 
     void readStdIn();
+    void writeToClient(Transmitter::Byte *data, size_t data_size);
+
+    Byte *pack_up(uint64_t session_id, uint64_t first_byte_num, std::deque<Byte> &audio_data);
 
     // DEBUG
     void printTransmitter();
-
-    using Byte = uint8_t;
 
 private:
     using DataQueueT = ConcurrentQueue<Byte>;
@@ -55,6 +59,8 @@ private:
     uint64_t fsize_;
     uint64_t rtime_;
     std::string nazwa_;
+
+    uint64_t data_size_;
 
     DataQueuePtr data_queue_;
     CtrlPortListenerPtr ctrl_port_listener_;

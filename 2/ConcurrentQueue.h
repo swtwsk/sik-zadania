@@ -50,6 +50,11 @@ public:
         cv_.notify_one();
     }
 
+    bool empty() const {
+        // we use this queue in 1 producer/1 consumer pattern so nobody would "eat" elements from queue
+        return queue_.empty();
+    }
+
     explicit ConcurrentQueue(int max_length) : max_length_(max_length), queue_(std::queue<T>()), last_element_idx_(0) {}
     ConcurrentQueue(const ConcurrentQueue&) = delete;            // disable copying
     ConcurrentQueue& operator=(const ConcurrentQueue&) = delete; // disable assignment
