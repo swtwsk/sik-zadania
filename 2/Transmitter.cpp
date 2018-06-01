@@ -1,12 +1,14 @@
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <thread>
+#include <future>
 
 #include "Transmitter.h"
 
 Transmitter::Transmitter(const std::string &mcast_addr)
     : mcast_addr_(mcast_addr), data_port_(DEFAULT_DATA_PORT), ctrl_port_(DEFAULT_CTRL_PORT), psize_(DEFAULT_PSIZE),
       fsize_(DEFAULT_FSIZE), rtime_(DEFAULT_RTIME), nazwa_(DEFAULT_NAZWA),
-      data_queue_(std::make_shared<DataQueueT>()) {}
+      data_queue_(std::make_shared<DataQueueT>(fsize_)) {}
 
 void Transmitter::setDataPort(in_port_t data_port) {
     Transmitter::data_port_ = data_port;
@@ -38,6 +40,7 @@ void Transmitter::printTransmitter() {
               << "\n  psize_ = " << psize_ << "\n  fsize_ = " << fsize_
               << "\n  rtime_ = " << rtime_ << "\n  nazwa_ = " << nazwa_ << std::endl;
 }
+
 void Transmitter::startTransmitter() {
     sock_ = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock_ < 0) {
@@ -68,10 +71,26 @@ void Transmitter::startTransmitter() {
         throw ServerCreateException("connect");
     }
 
+    // might throw ServerCreateException
     ctrl_port_listener_ = std::make_unique<CtrlPortListener>(ctrl_port_, data_queue_, mcast_addr_);
+
+    std::future<void> futureStopper = exit_signal_.get_future();
+    ctrl_port_thread_ = std::thread(&CtrlPortListener::printQueue, *ctrl_port_listener_, std::move(futureStopper));
 }
 
-/** ServerException **/
-const char *ServerException::what() const noexcept {
-    return error_msg_.c_str();
+void Transmitter::readStdIn() {
+    using std::cin;
+
+    //Byte b;
+    std::string s;
+    while (cin >> s) {
+        for (char b : s) {
+            data_queue_->push(b);
+        }
+    }
+
+    std::cout << "Stopping" << std::endl;
+
+    exit_signal_.set_value();
+    ctrl_port_thread_.join();
 }

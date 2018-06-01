@@ -5,9 +5,12 @@
 #include <string>
 #include <memory>
 #include <netinet/in.h>
-#include <queue>
+#include <future>
+#include <thread>
 
 #include "CtrlPortListener.h"
+#include "ConcurrentQueue.h"
+#include "ServerException.h"
 
 class Transmitter {
 public:
@@ -22,13 +25,15 @@ public:
 
     void startTransmitter();
 
+    void readStdIn();
+
     // DEBUG
     void printTransmitter();
 
     using Byte = uint8_t;
 
 private:
-    using DataQueueT = std::queue<Byte>;
+    using DataQueueT = ConcurrentQueue<Byte>;
     using DataQueuePtr = std::shared_ptr<DataQueueT>;
     using CtrlPortListenerPtr = std::unique_ptr<CtrlPortListener>;
 
@@ -53,24 +58,8 @@ private:
 
     DataQueuePtr data_queue_;
     CtrlPortListenerPtr ctrl_port_listener_;
-};
-
-class ServerException : public std::exception {
-public:
-    ServerException() = delete;
-
-    const char *what() const noexcept override;
-
-protected:
-    explicit ServerException(std::string error_msg) : error_msg_(std::move(error_msg)) {}
-
-    std::string error_msg_;
-};
-
-class ServerCreateException : public ServerException {
-public:
-    explicit ServerCreateException(const std::string &function_name)
-        : ServerException("error while creating server in function: " + function_name) {}
+    std::promise<void> exit_signal_;
+    std::thread ctrl_port_thread_;
 };
 
 #endif //TRANSMITTER_H

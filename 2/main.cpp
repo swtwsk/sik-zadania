@@ -108,6 +108,7 @@ int main(int argc, char *argv[]) {
     }
 
     transmitter->printTransmitter();
+    transmitter->readStdIn();
 
     return 0;
 }
