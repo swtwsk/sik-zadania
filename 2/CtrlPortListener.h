@@ -5,6 +5,7 @@
 #include <queue>
 #include <memory>
 
+#include "TransmitterData.h"
 #include "ConcurrentQueue.h"
 #include "ServerException.h"
 
@@ -15,11 +16,14 @@ private:
     using DataQueuePtr = std::shared_ptr<DataQueueT>;
 
 public:
-    explicit CtrlPortListener(in_port_t ctrl_port, DataQueuePtr data_queue, std::string mcast_addr, uint64_t psize);
+    explicit CtrlPortListener(TransmitterData &transmitter_data, DataQueuePtr data_queue);
     ~CtrlPortListener();
 
     void writeToRexmitCast(Byte *data, size_t data_size);
     void rexmitQueue(std::future<void> futureStopper);
+
+    void handleLookup(struct sockaddr_in &client_address);
+    void handleRexmit();
     void listenOnCtrlPort(std::future<void> futureStopper);
 
 private:
@@ -27,16 +31,16 @@ private:
     int ctrl_recv_sock_;
     struct sockaddr_in ctrl_recv_address_;
     struct ip_mreq ctrl_ip_mreq_;
-    in_port_t ctrl_port_;
 
     //REXMIT_SENDER
     int rexm_send_sock_;
     struct sockaddr_in rexm_send_address_;
-    in_port_t rexm_port_;
 
+    TransmitterData transmitter_data_;
     DataQueuePtr data_queue_;
-    std::string mcast_addr_;
-    uint64_t psize_;
+
+    const std::string LOOKUP_MSG = "ZERO_SEVEN_COME_IN";
+    const std::string REXMIT_MSG = "LOUDER_PLEASE";
 };
 
 #endif //CTRLPORTLISTENER_H

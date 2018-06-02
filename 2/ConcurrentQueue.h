@@ -55,12 +55,13 @@ public:
         return queue_.empty();
     }
 
-    explicit ConcurrentQueue(int max_length) : max_length_(max_length), queue_(std::queue<T>()), last_element_idx_(0) {}
+    explicit ConcurrentQueue(uint64_t max_length)
+        : max_length_(max_length), queue_(std::queue<T>()), last_element_idx_(0) {}
     ConcurrentQueue(const ConcurrentQueue&) = delete;            // disable copying
     ConcurrentQueue& operator=(const ConcurrentQueue&) = delete; // disable assignment
 
 private:
-    int max_length_;
+    uint64_t max_length_;
     std::queue<T> queue_;
     uint64_t last_element_idx_;
 

@@ -6,46 +6,8 @@
 
 #include "Transmitter.h"
 
-Transmitter::Transmitter(const std::string &mcast_addr)
-    : mcast_addr_(mcast_addr), data_port_(DEFAULT_DATA_PORT), ctrl_port_(DEFAULT_CTRL_PORT), psize_(DEFAULT_PSIZE),
-      fsize_(DEFAULT_FSIZE), rtime_(DEFAULT_RTIME), nazwa_(DEFAULT_NAZWA),
-      data_queue_(std::make_shared<DataQueueT>(fsize_)) {
-
-    data_size_ = psize_ - 2 * sizeof(uint64_t);
-    session_id_ = static_cast<uint64_t>(time(NULL));
-}
-
-void Transmitter::setDataPort(in_port_t data_port) {
-    Transmitter::data_port_ = data_port;
-}
-
-void Transmitter::setCtrlPort(in_port_t ctrl_port) {
-    Transmitter::ctrl_port_ = ctrl_port;
-}
-
-void Transmitter::setPsize(uint64_t psize) {
-    Transmitter::psize_ = psize;
-    data_size_ = psize_ - 2 * sizeof(uint64_t);
-}
-
-void Transmitter::setFsize(uint64_t fsize) {
-    Transmitter::fsize_ = fsize;
-}
-
-void Transmitter::setRtime(uint64_t rtime) {
-    Transmitter::rtime_ = rtime;
-}
-
-void Transmitter::setNazwa(const std::string &nazwa) {
-    Transmitter::nazwa_ = nazwa;
-}
-
-void Transmitter::printTransmitter() {
-    std::cout << "TRANSMITTER:\n  mcast_addr_ = " << inet_ntoa(ip_mreq_.imr_multiaddr)
-              << "\n  data_port_ = " << data_port_ << "\n  ctrl_port_ = " << ctrl_port_
-              << "\n  psize_ = " << psize_ << "\n  fsize_ = " << fsize_
-              << "\n  rtime_ = " << rtime_ << "\n  nazwa_ = " << nazwa_ << std::endl;
-}
+Transmitter::Transmitter(TransmitterData &transmitter_data)
+    : transmitter_data_(transmitter_data), data_queue_(std::make_shared<DataQueueT>(transmitter_data.getFsize())) {}
 
 void Transmitter::startTransmitter() {
     sock_ = socket(AF_INET, SOCK_DGRAM, 0);
@@ -67,8 +29,8 @@ void Transmitter::startTransmitter() {
     }
 
     remote_address_.sin_family = AF_INET;
-    remote_address_.sin_port = htons(data_port_);
-    if (inet_aton(mcast_addr_.c_str(), &remote_address_.sin_addr) == 0) {
+    remote_address_.sin_port = htons(transmitter_data_.getDataPort());
+    if (inet_aton(transmitter_data_.getMcastAddr().c_str(), &remote_address_.sin_addr) == 0) {
         close(sock_);
         throw ServerCreateException("inet_aton");
     }
@@ -78,10 +40,12 @@ void Transmitter::startTransmitter() {
     }
 
     // might throw ServerCreateException
-    ctrl_port_listener_ = std::make_unique<CtrlPortListener>(ctrl_port_, data_queue_, mcast_addr_, psize_);
+    ctrl_port_listener_ = new CtrlPortListener(transmitter_data_, data_queue_);
 
-    std::future<void> futureStopper = exit_signal_.get_future();
-    ctrl_port_thread_ = std::thread(&CtrlPortListener::rexmitQueue, *ctrl_port_listener_, std::move(futureStopper));
+    std::future<void> future_rexmit_stopper = exit_rexmit_signal_.get_future();
+    ctrl_port_rexmit_thread_ = std::thread(&CtrlPortListener::rexmitQueue, ctrl_port_listener_, std::move(future_rexmit_stopper));
+    std::future<void> future_listener_stopper = exit_listener_signal_.get_future();
+    ctrl_port_listener_thread_ = std::thread(&CtrlPortListener::listenOnCtrlPort, ctrl_port_listener_, std::move(future_listener_stopper));
 }
 
 void Transmitter::readStdIn() {
@@ -97,16 +61,20 @@ void Transmitter::readStdIn() {
             readed_bytes.push_back(static_cast<Byte>(b));
         }
 
-        if (readed_bytes.size() >= data_size_) {
-            unsigned char *pack_to_send = pack_up(session_id_, first_byte_num, readed_bytes);
+        if (readed_bytes.size() >= transmitter_data_.getDataSize()) {
+            unsigned char *pack_to_send = pack_up(first_byte_num, readed_bytes);
             std::cout << pack_to_send;
-            writeToClient(pack_to_send, psize_);
-            first_byte_num += data_size_;
+            writeToClient(pack_to_send, transmitter_data_.getPsize());
+            first_byte_num += transmitter_data_.getDataSize();
         }
     }
 
-    exit_signal_.set_value();
-    ctrl_port_thread_.join();
+    //std::cout << "O chuj TU chodzi xD" << std::endl;
+
+    exit_rexmit_signal_.set_value();
+    exit_listener_signal_.set_value();
+    ctrl_port_rexmit_thread_.join();
+    ctrl_port_listener_thread_.join();
 }
 
 void Transmitter::writeToClient(Transmitter::Byte *data, size_t data_size) {
@@ -119,10 +87,10 @@ void Transmitter::writeToClient(Transmitter::Byte *data, size_t data_size) {
     delete[] data;
 }
 
-Transmitter::Byte *Transmitter::pack_up(uint64_t session_id,
-                                        uint64_t first_byte_num,
-                                        std::deque<Transmitter::Byte> &audio_data) {
-    auto *to_return = new Byte[psize_];
+Transmitter::Byte *Transmitter::pack_up(uint64_t first_byte_num, std::deque<Transmitter::Byte> &audio_data) {
+    auto *to_return = new Byte[transmitter_data_.getPsize()];
+
+    uint64_t session_id = transmitter_data_.getSessionId();
 
     // TODO: Change it to a function
     to_return[0]=session_id>>56&0xFF;
@@ -152,7 +120,7 @@ Transmitter::Byte *Transmitter::pack_up(uint64_t session_id,
     to_return[14]=first_byte_num>>8&0xFF;
     to_return[15]=first_byte_num>>0&0xFF;
 
-    for (auto i = 16; i < psize_; ++i) {
+    for (uint64_t i = 16; i < transmitter_data_.getPsize(); ++i) {
         to_return[i] = audio_data.front();
         audio_data.pop_front();
     }

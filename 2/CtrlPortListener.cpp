@@ -3,10 +3,17 @@
 #include <future>
 #include <iostream>
 #include <sys/time.h>
+#include <sys/socket.h>
+#include <string>
+#include <sstream>
+
+#include <cerrno>
+#include <cstring>
+
 #include "CtrlPortListener.h"
 
-CtrlPortListener::CtrlPortListener(in_port_t ctrl_port, DataQueuePtr data_queue, std::string mcast_addr, uint64_t psize)
-    : ctrl_port_(ctrl_port), rexm_port_(ctrl_port), data_queue_(data_queue), mcast_addr_(mcast_addr), psize_(psize) {
+CtrlPortListener::CtrlPortListener(TransmitterData &transmitter_data, DataQueuePtr data_queue)
+    : transmitter_data_(transmitter_data), data_queue_(data_queue) {
 
     // Create CTRL_LISTENER
     ctrl_recv_sock_ = socket(AF_INET, SOCK_DGRAM, 0);
@@ -15,7 +22,7 @@ CtrlPortListener::CtrlPortListener(in_port_t ctrl_port, DataQueuePtr data_queue,
     }
 
     ctrl_ip_mreq_.imr_interface.s_addr = htonl(INADDR_ANY);
-    if (inet_aton(mcast_addr_.c_str(), &ctrl_ip_mreq_.imr_multiaddr) == 0) {
+    if (inet_aton(transmitter_data_.getMcastAddr().c_str(), &ctrl_ip_mreq_.imr_multiaddr) == 0) {
         throw CtrlServerCreateException("inet_aton");
     }
     if (setsockopt(ctrl_recv_sock_, IPPROTO_IP, IP_ADD_MEMBERSHIP, (void*)&ctrl_ip_mreq_, sizeof ctrl_ip_mreq_) < 0) {
@@ -28,10 +35,11 @@ CtrlPortListener::CtrlPortListener(in_port_t ctrl_port, DataQueuePtr data_queue,
 
     ctrl_recv_address_.sin_family = AF_INET;
     ctrl_recv_address_.sin_addr.s_addr = htonl(INADDR_ANY);
-    ctrl_recv_address_.sin_port = htons(ctrl_port_);
+    ctrl_recv_address_.sin_port = htons(transmitter_data_.getCtrlPort());
     if (bind(ctrl_recv_sock_, (struct sockaddr *)&ctrl_recv_address_, sizeof ctrl_recv_address_) < 0) {
         throw CtrlServerCreateException("bind");
     }
+
 
     // Create REXMIT_SENDER
     rexm_send_sock_ = socket(AF_INET, SOCK_DGRAM, 0);
@@ -53,8 +61,8 @@ CtrlPortListener::CtrlPortListener(in_port_t ctrl_port, DataQueuePtr data_queue,
     }
 
     rexm_send_address_.sin_family = AF_INET;
-    rexm_send_address_.sin_port = htons(rexm_port_);
-    if (inet_aton(mcast_addr_.c_str(), &rexm_send_address_.sin_addr) == 0) {
+    rexm_send_address_.sin_port = htons(transmitter_data_.getCtrlPort() + 2); // TODO: CHECK IT!!!!
+    if (inet_aton(transmitter_data_.getMcastAddr().c_str(), &rexm_send_address_.sin_addr) == 0) {
         close(rexm_send_sock_);
         throw CtrlServerCreateException("inet_aton");
     }
@@ -65,6 +73,7 @@ CtrlPortListener::CtrlPortListener(in_port_t ctrl_port, DataQueuePtr data_queue,
 }
 
 CtrlPortListener::~CtrlPortListener() {
+    close(rexm_send_sock_);
     close(ctrl_recv_sock_);
 }
 
@@ -86,20 +95,76 @@ void CtrlPortListener::rexmitQueue(std::future<void> futureStopper) {
         }
     }
 }
+
+void CtrlPortListener::handleLookup(struct sockaddr_in &client_address) {
+    std::stringstream ss;
+    ss << "BOREWICZ_HERE " << transmitter_data_.getMcastAddr() << " " << transmitter_data_.getDataPort()
+       << " " << transmitter_data_.getNazwa();
+    // TODO: Implement response
+    std::cout << "LOOKUP: " << ss.str() << std::endl;
+}
+
+void CtrlPortListener::handleRexmit() {
+    std::cout << "REXMIT" << std::endl;
+}
+
 void CtrlPortListener::listenOnCtrlPort(std::future<void> futureStopper) {
-    // create timeout on receive
     struct timeval timeout;
     timeout.tv_sec = 5;
     timeout.tv_usec = 0;
 
-    if (setsockopt (ctrl_recv_sock_, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout)) < 0) {
-        throw CtrlServerCreateException("setsockopt");
+    if (setsockopt(ctrl_recv_sock_, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+        throw CtrlServerCreateException("setsockopt rcvtimeo");
     }
+
+    struct timeval tValBefore, tValAfter;
+    gettimeofday(&tValBefore, NULL);
+
+    char buffer[1024];
 
     /* waiting for 0 seconds seems like a bad idea (probably slaughtering the processor)
      * but inside of a loop there is a blocking, UNIX-provided function anyway so it is fairly safe
      */
     while(futureStopper.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
-        
+        struct sockaddr_in client_address;
+        socklen_t rcva_len;
+        ssize_t rcv_len;
+
+        rcva_len = (socklen_t) sizeof(client_address);
+        rcv_len = recvfrom(ctrl_recv_sock_, buffer, sizeof(buffer), 0,
+                           (struct sockaddr *) &client_address, &rcva_len);  // blocking
+        if (rcv_len < 0 && errno != EAGAIN) {
+            throw ServerRunException("recvfrom in CtrlPortListener");
+        }
+        else if (rcv_len > 0) {
+            std::string ctrl_message(buffer, static_cast<unsigned long>(rcv_len));
+            if (ctrl_message == LOOKUP_MSG) {
+                handleLookup(client_address);
+            }
+            else if (ctrl_message.length() >= REXMIT_MSG.length()
+                && ctrl_message.compare(0, REXMIT_MSG.length(), REXMIT_MSG) == 0) {
+                handleRexmit();
+            }
+
+            /*printf("read %zd bytes: %.*s ; ", rcv_len, (int)rcv_len, buffer);
+            printf("sender IP %s:%d\n", inet_ntoa(client_address.sin_addr),
+                   ntohs(client_address.sin_port));*/
+        }
+
+        gettimeofday(&tValAfter, NULL);
+        long elapsed = (tValAfter.tv_sec-tValBefore.tv_sec) * 1000000
+            + tValAfter.tv_usec-tValBefore.tv_usec;
+
+        if (elapsed > 5000000) {
+            gettimeofday(&tValBefore, NULL);
+
+            timeout.tv_sec = 5;
+            timeout.tv_usec = 0;
+        }
+        else {
+            timeout.tv_sec = tValAfter.tv_sec - tValBefore.tv_sec;
+            timeout.tv_usec = tValAfter.tv_usec - tValBefore.tv_usec;
+        }
+        setsockopt (ctrl_recv_sock_, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
     }
 }

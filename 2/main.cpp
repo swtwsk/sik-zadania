@@ -5,6 +5,7 @@
 #include <string>
 #include <netinet/in.h>
 
+#include "TransmitterData.h"
 #include "Transmitter.h"
 
 std::pair<bool, char **> cmdOptionExists(char** begin, char** end, const std::string& option) {
@@ -12,7 +13,7 @@ std::pair<bool, char **> cmdOptionExists(char** begin, char** end, const std::st
     return std::make_pair(it != end && ++it != end, it);
 }
 
-int parseCommandLineArgs(int argc, char *argv[], std::unique_ptr<Transmitter> &transmitter) {
+int parseCommandLineArgs(int argc, char *argv[], TransmitterData &transmitter_data) {
     if ((argc - 1) % 2 != 0) {
         std::cerr << "Wrong number of arguments" << std::endl;
         return 1;
@@ -24,7 +25,7 @@ int parseCommandLineArgs(int argc, char *argv[], std::unique_ptr<Transmitter> &t
         return 1;
     }
 
-    transmitter = std::make_unique<Transmitter>(*(mcast_addr_arg_pair.second));
+    transmitter_data.setMcastAddr(*(mcast_addr_arg_pair.second));
 
     uint64_t unsigned_arg;
     in_port_t port_arg;
@@ -39,7 +40,7 @@ int parseCommandLineArgs(int argc, char *argv[], std::unique_ptr<Transmitter> &t
                 std::cerr << "Invalid data_port_ argument" << std::endl;
                 return 1;
             }
-            transmitter->setDataPort(port_arg);
+            transmitter_data.setDataPort(port_arg);
         }
         else if (!strcmp(argv[i], "-C")) {
             std::istringstream ss(argv[i + 1]);
@@ -47,7 +48,7 @@ int parseCommandLineArgs(int argc, char *argv[], std::unique_ptr<Transmitter> &t
                 std::cerr << "Invalid ctrl_port_ argument" << std::endl;
                 return 1;
             }
-            transmitter->setCtrlPort(port_arg);
+            transmitter_data.setCtrlPort(port_arg);
         }
         else if (!strcmp(argv[i], "-p")) {
             std::istringstream ss(argv[i + 1]);
@@ -55,7 +56,7 @@ int parseCommandLineArgs(int argc, char *argv[], std::unique_ptr<Transmitter> &t
                 std::cerr << "Invalid psize_ argument" << std::endl;
                 return 1;
             }
-            transmitter->setPsize(unsigned_arg);
+            transmitter_data.setPsize(unsigned_arg);
         }
         else if (!strcmp(argv[i], "-f")) {
             std::istringstream ss(argv[i + 1]);
@@ -63,7 +64,7 @@ int parseCommandLineArgs(int argc, char *argv[], std::unique_ptr<Transmitter> &t
                 std::cerr << "Invalid fsize_ argument" << std::endl;
                 return 1;
             }
-            transmitter->setFsize(unsigned_arg);
+            transmitter_data.setFsize(unsigned_arg);
         }
         else if (!strcmp(argv[i], "-R")) {
             std::istringstream ss(argv[i + 1]);
@@ -71,7 +72,7 @@ int parseCommandLineArgs(int argc, char *argv[], std::unique_ptr<Transmitter> &t
                 std::cerr << "Invalid rtime_ argument" << std::endl;
                 return 1;
             }
-            transmitter->setRtime(unsigned_arg);
+            transmitter_data.setRtime(unsigned_arg);
         }
         else if (!strcmp(argv[i], "-n")) {
             std::string nazwa = std::string(argv[i + 1]);
@@ -79,7 +80,7 @@ int parseCommandLineArgs(int argc, char *argv[], std::unique_ptr<Transmitter> &t
                 std::cerr << "Invalid nazwa_ argument (should be at most 64 characters)" << std::endl;
                 return 1;
             }
-            transmitter->setNazwa(nazwa);
+            transmitter_data.setNazwa(nazwa);
         }
         else {
             std::cerr << "Invalid arguments, proper usage:\n"
@@ -93,11 +94,13 @@ int parseCommandLineArgs(int argc, char *argv[], std::unique_ptr<Transmitter> &t
 }
 
 int main(int argc, char *argv[]) {
-    std::unique_ptr<Transmitter> transmitter;
+    TransmitterData transmitter_data;
 
-    if (parseCommandLineArgs(argc, argv, transmitter) != 0) {
+    if (parseCommandLineArgs(argc, argv, transmitter_data) != 0) {
         return 1;
     }
+
+    std::unique_ptr transmitter = std::make_unique<Transmitter>(transmitter_data);
 
     try {
         transmitter->startTransmitter();
