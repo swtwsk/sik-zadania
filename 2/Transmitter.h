@@ -61,6 +61,7 @@ private:
     std::string nazwa_;
 
     uint64_t data_size_;
+    uint64_t session_id_;
 
     DataQueuePtr data_queue_;
     CtrlPortListenerPtr ctrl_port_listener_;

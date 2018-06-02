@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <thread>
 #include <future>
+#include <ctime>
 
 #include "Transmitter.h"
 
@@ -11,6 +12,7 @@ Transmitter::Transmitter(const std::string &mcast_addr)
       data_queue_(std::make_shared<DataQueueT>(fsize_)) {
 
     data_size_ = psize_ - 2 * sizeof(uint64_t);
+    session_id_ = static_cast<uint64_t>(time(NULL));
 }
 
 void Transmitter::setDataPort(in_port_t data_port) {
@@ -76,10 +78,10 @@ void Transmitter::startTransmitter() {
     }
 
     // might throw ServerCreateException
-    ctrl_port_listener_ = std::make_unique<CtrlPortListener>(ctrl_port_, data_queue_, mcast_addr_);
+    ctrl_port_listener_ = std::make_unique<CtrlPortListener>(ctrl_port_, data_queue_, mcast_addr_, psize_);
 
     std::future<void> futureStopper = exit_signal_.get_future();
-    ctrl_port_thread_ = std::thread(&CtrlPortListener::printQueue, *ctrl_port_listener_, std::move(futureStopper));
+    ctrl_port_thread_ = std::thread(&CtrlPortListener::rexmitQueue, *ctrl_port_listener_, std::move(futureStopper));
 }
 
 void Transmitter::readStdIn() {
@@ -96,13 +98,12 @@ void Transmitter::readStdIn() {
         }
 
         if (readed_bytes.size() >= data_size_) {
-            unsigned char *pack_to_send = pack_up(1, first_byte_num, readed_bytes);
+            unsigned char *pack_to_send = pack_up(session_id_, first_byte_num, readed_bytes);
             std::cout << pack_to_send;
             writeToClient(pack_to_send, psize_);
+            first_byte_num += data_size_;
         }
     }
-
-    //std::cout << "Stopping" << std::endl;
 
     exit_signal_.set_value();
     ctrl_port_thread_.join();
@@ -123,6 +124,7 @@ Transmitter::Byte *Transmitter::pack_up(uint64_t session_id,
                                         std::deque<Transmitter::Byte> &audio_data) {
     auto *to_return = new Byte[psize_];
 
+    // TODO: Change it to a function
     to_return[0]=session_id>>56&0xFF;
     to_return[1]=session_id>>48&0xFF;
     to_return[2]=session_id>>40&0xFF;
@@ -131,6 +133,15 @@ Transmitter::Byte *Transmitter::pack_up(uint64_t session_id,
     to_return[5]=session_id>>16&0xFF;
     to_return[6]=session_id>>8&0xFF;
     to_return[7]=session_id>>0&0xFF;
+
+    /*to_return[8] = session_id>>0;
+    to_return[9] = session_id>>8;
+    to_return[10] = session_id>>16;
+    to_return[11] = session_id>>24;
+    to_return[12] = session_id>>32;
+    to_return[13] = session_id>>40;
+    to_return[14] = session_id>>48;
+    to_return[15] = session_id>>56;*/
 
     to_return[8]=first_byte_num>>56&0xFF;
     to_return[9]=first_byte_num>>48&0xFF;
