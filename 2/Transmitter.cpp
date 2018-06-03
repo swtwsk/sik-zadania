@@ -6,8 +6,8 @@
 
 #include "Transmitter.h"
 
-Transmitter::Transmitter(TransmitterData &transmitter_data)
-    : transmitter_data_(transmitter_data), data_queue_(std::make_shared<DataQueueT>(transmitter_data.getFsize())) {}
+Transmitter::Transmitter(TransmitterData *transmitter_data)
+    : transmitter_data_(transmitter_data), data_queue_(std::make_shared<DataQueueT>(transmitter_data->getFsize())) {}
 
 void Transmitter::startTransmitter() {
     sock_ = socket(AF_INET, SOCK_DGRAM, 0);
@@ -29,8 +29,8 @@ void Transmitter::startTransmitter() {
     }
 
     remote_address_.sin_family = AF_INET;
-    remote_address_.sin_port = htons(transmitter_data_.getDataPort());
-    if (inet_aton(transmitter_data_.getMcastAddr().c_str(), &remote_address_.sin_addr) == 0) {
+    remote_address_.sin_port = htons(transmitter_data_->getDataPort());
+    if (inet_aton(transmitter_data_->getMcastAddr().c_str(), &remote_address_.sin_addr) == 0) {
         close(sock_);
         throw ServerCreateException("inet_aton");
     }
@@ -41,6 +41,7 @@ void Transmitter::startTransmitter() {
 
     // might throw ServerCreateException
     ctrl_port_listener_ = new CtrlPortListener(transmitter_data_, data_queue_);
+    ctrl_port_listener_->startCtrlPortListener();
 
     std::future<void> future_rexmit_stopper = exit_rexmit_signal_.get_future();
     ctrl_port_rexmit_thread_ = std::thread(&CtrlPortListener::rexmitQueue, ctrl_port_listener_, std::move(future_rexmit_stopper));
@@ -61,11 +62,11 @@ void Transmitter::readStdIn() {
             readed_bytes.push_back(static_cast<Byte>(b));
         }
 
-        if (readed_bytes.size() >= transmitter_data_.getDataSize()) {
+        if (readed_bytes.size() >= transmitter_data_->getDataSize()) {
             unsigned char *pack_to_send = pack_up(first_byte_num, readed_bytes);
             std::cout << pack_to_send;
-            writeToClient(pack_to_send, transmitter_data_.getPsize());
-            first_byte_num += transmitter_data_.getDataSize();
+            writeToClient(pack_to_send, transmitter_data_->getPsize());
+            first_byte_num += transmitter_data_->getDataSize();
         }
     }
 
@@ -88,9 +89,9 @@ void Transmitter::writeToClient(Transmitter::Byte *data, size_t data_size) {
 }
 
 Transmitter::Byte *Transmitter::pack_up(uint64_t first_byte_num, std::deque<Transmitter::Byte> &audio_data) {
-    auto *to_return = new Byte[transmitter_data_.getPsize()];
+    auto *to_return = new Byte[transmitter_data_->getPsize()];
 
-    uint64_t session_id = transmitter_data_.getSessionId();
+    uint64_t session_id = transmitter_data_->getSessionId();
 
     // TODO: Change it to a function
     to_return[0]=session_id>>56&0xFF;
@@ -120,7 +121,7 @@ Transmitter::Byte *Transmitter::pack_up(uint64_t first_byte_num, std::deque<Tran
     to_return[14]=first_byte_num>>8&0xFF;
     to_return[15]=first_byte_num>>0&0xFF;
 
-    for (uint64_t i = 16; i < transmitter_data_.getPsize(); ++i) {
+    for (uint64_t i = 16; i < transmitter_data_->getPsize(); ++i) {
         to_return[i] = audio_data.front();
         audio_data.pop_front();
     }

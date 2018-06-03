@@ -11,14 +11,14 @@
 
 #include "TransmitterData.h"
 #include "CtrlPortListener.h"
-#include "ConcurrentQueue.h"
+#include "ConcurrentContainers.h"
 #include "ServerException.h"
 
 class Transmitter {
 public:
     using Byte = uint8_t;
 
-    explicit Transmitter(TransmitterData &transmitter_data);
+    explicit Transmitter(TransmitterData *transmitter_data);
 
     void startTransmitter();
 
@@ -39,7 +39,7 @@ private:
     struct sockaddr_in remote_address_;
     struct ip_mreq ip_mreq_;
 
-    TransmitterData transmitter_data_;
+    TransmitterData *transmitter_data_;
     DataQueuePtr data_queue_;
     CtrlPortListenerPtr ctrl_port_listener_;
 

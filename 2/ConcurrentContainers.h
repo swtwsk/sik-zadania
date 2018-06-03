@@ -1,7 +1,9 @@
 #ifndef CONCURRENTQUEUE_H
 #define CONCURRENTQUEUE_H
 
+#include <vector>
 #include <queue>
+#include <set>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -10,6 +12,11 @@
 template <class T>
 class ConcurrentQueue {
 public:
+    explicit ConcurrentQueue(uint64_t max_length)
+        : max_length_(max_length), queue_(std::queue<T>()), last_element_idx_(0) {}
+    ConcurrentQueue(const ConcurrentQueue &) = delete;            // disable copying
+    ConcurrentQueue& operator=(const ConcurrentQueue &) = delete; // disable assignment
+
     std::pair<T, uint64_t> pop() {
         std::unique_lock<std::mutex> lock(mutex_); // RAII
 
@@ -55,18 +62,42 @@ public:
         return queue_.empty();
     }
 
-    explicit ConcurrentQueue(uint64_t max_length)
-        : max_length_(max_length), queue_(std::queue<T>()), last_element_idx_(0) {}
-    ConcurrentQueue(const ConcurrentQueue&) = delete;            // disable copying
-    ConcurrentQueue& operator=(const ConcurrentQueue&) = delete; // disable assignment
-
 private:
     uint64_t max_length_;
-    std::queue<T> queue_;
+    std::queue<T> queue_{};
     uint64_t last_element_idx_;
 
     std::mutex mutex_;
     std::condition_variable cv_;
+};
+
+template <class T>
+class ConcurrentSet {
+public:
+    ConcurrentSet() = default;
+    ConcurrentSet(const ConcurrentSet &) = delete;
+    ConcurrentSet& operator=(const ConcurrentSet &) = delete;
+
+    void insert(const T& val) {
+        std::unique_lock<std::mutex> lock(mutex_);
+        set_.insert(val);
+    }
+
+    std::vector<T> elements() {
+        std::unique_lock<std::mutex> lock(mutex_);
+        std::vector<T> elements(set_.begin(), set_.end());
+        set_.clear();
+        return elements;
+    }
+
+    bool empty() const {
+        std::unique_lock<std::mutex> lock(mutex_);
+        return set_.empty();
+    }
+
+private:
+    std::set<T> set_;
+    std::mutex mutex_;
 };
 
 #endif //CONCURRENTQUEUE_H
