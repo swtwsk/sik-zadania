@@ -41,7 +41,6 @@ void Transmitter::startTransmitter() {
 
     // might throw ServerCreateException
     ctrl_port_listener_ = new CtrlPortListener(transmitter_data_, data_queue_);
-    ctrl_port_listener_->startCtrlPortListener();
 
     std::future<void> future_rexmit_stopper = exit_rexmit_signal_.get_future();
     ctrl_port_rexmit_thread_ = std::thread(&CtrlPortListener::rexmitQueue, ctrl_port_listener_, std::move(future_rexmit_stopper));

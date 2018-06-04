@@ -64,7 +64,7 @@ public:
 
 private:
     uint64_t max_length_;
-    std::queue<T> queue_{};
+    std::queue<T> queue_;
     uint64_t last_element_idx_;
 
     std::mutex mutex_;
@@ -97,7 +97,7 @@ public:
 
 private:
     std::set<T> set_;
-    std::mutex mutex_;
+    mutable std::mutex mutex_;
 };
 
 #endif //CONCURRENTQUEUE_H

@@ -21,19 +21,14 @@ public:
     explicit CtrlPortListener(TransmitterData *transmitter_data, DataQueuePtr data_queue);
     ~CtrlPortListener();
 
-    void startCtrlPortListener();
-
     void writeToRexmitCast(Byte *data, size_t data_size);
     void rexmitQueue(std::future<void> futureStopper);
 
     void handleLookup(struct sockaddr_in &client_address);
-    void handleRexmit(const std::string &rexmit_message, bool msg_beginning);
+    void handleRexmit(const std::string &rexmit_message);
     void listenOnCtrlPort(std::future<void> futureStopper);
 
 private:
-    void createCtrlListener();
-    void createRexmitSender();
-
     // CTRL_LISTENER
     int ctrl_recv_sock_;
     struct sockaddr_in ctrl_recv_address_;
@@ -47,8 +42,11 @@ private:
     DataQueuePtr data_queue_;
     ConcurrentSet<uint64_t> rexmit_set_;
 
+    uint64_t rtime_;
+
     const std::string LOOKUP_MSG = "ZERO_SEVEN_COME_IN";
     const std::string REXMIT_MSG = "LOUDER_PLEASE";
+    const static size_t BUFFER_SIZE = 65536; // MAX UDP PACKET SIZE (including IP & UPD headers)
 };
 
 #endif //CTRLPORTLISTENER_H
