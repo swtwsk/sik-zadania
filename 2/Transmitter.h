@@ -25,7 +25,7 @@ public:
     void readStdIn();
     void writeToClient(Transmitter::Byte *data, size_t data_size);
 
-    Byte *pack_up(uint64_t first_byte_num, std::deque<Byte> &audio_data);
+    Byte *pack_up(uint64_t first_byte_num, Byte *audio_data);
 
     // DEBUG
     void printTransmitter();

@@ -57,6 +57,22 @@ public:
         cv_.notify_one();
     }
 
+    void push(T *items, uint64_t item_count) {
+        std::unique_lock<std::mutex> lock(mutex_); // RAII
+
+        for (auto i = 0U; i < item_count; ++i) {
+            queue_.push(items[i]);
+            ++last_element_idx_;
+
+            if (queue_.size() > max_length_) {
+                queue_.pop();
+            }
+        }
+
+        lock.unlock();
+        cv_.notify_one();
+    }
+
     bool empty() const {
         // we use this queue in 1 producer/1 consumer pattern so nobody would "eat" elements from queue
         return queue_.empty();

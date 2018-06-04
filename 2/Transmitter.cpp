@@ -51,22 +51,17 @@ void Transmitter::startTransmitter() {
 void Transmitter::readStdIn() {
     using std::cin;
 
-    std::string s;
     uint64_t first_byte_num = 0;
 
-    while (cin >> s) {
-        std::deque<Byte> readed_bytes;
-        for (char b : s) {
-            data_queue_->push(static_cast<Byte>(b));
-            readed_bytes.push_back(static_cast<Byte>(b));
-        }
+    auto *input = new Byte[transmitter_data_->getDataSize()];
 
-        if (readed_bytes.size() >= transmitter_data_->getDataSize()) {
-            unsigned char *pack_to_send = pack_up(first_byte_num, readed_bytes);
-            std::cout << pack_to_send;
-            writeToClient(pack_to_send, transmitter_data_->getPsize());
-            first_byte_num += transmitter_data_->getDataSize();
-        }
+    while (fread(input, sizeof(Byte), transmitter_data_->getDataSize(), stdin)) {
+        data_queue_->push(input, transmitter_data_->getDataSize());
+
+        unsigned char *pack_to_send = pack_up(first_byte_num, input);
+        fwrite(pack_to_send + 16, sizeof(char), transmitter_data_->getDataSize(), stdout);
+        writeToClient(pack_to_send, transmitter_data_->getPsize());
+        first_byte_num += transmitter_data_->getDataSize();
     }
 
     //std::cout << "O chuj TU chodzi xD" << std::endl;
@@ -87,7 +82,7 @@ void Transmitter::writeToClient(Transmitter::Byte *data, size_t data_size) {
     delete[] data;
 }
 
-Transmitter::Byte *Transmitter::pack_up(uint64_t first_byte_num, std::deque<Transmitter::Byte> &audio_data) {
+Transmitter::Byte *Transmitter::pack_up(uint64_t first_byte_num, Byte *audio_data) {
     auto *to_return = new Byte[transmitter_data_->getPsize()];
 
     uint64_t session_id = transmitter_data_->getSessionId();
@@ -121,8 +116,7 @@ Transmitter::Byte *Transmitter::pack_up(uint64_t first_byte_num, std::deque<Tran
     to_return[15]=first_byte_num>>0&0xFF;
 
     for (uint64_t i = 16; i < transmitter_data_->getPsize(); ++i) {
-        to_return[i] = audio_data.front();
-        audio_data.pop_front();
+        to_return[i] = audio_data[i - 16];
     }
 
     return to_return;
