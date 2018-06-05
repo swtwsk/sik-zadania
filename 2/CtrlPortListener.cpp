@@ -98,8 +98,6 @@ void CtrlPortListener::recastPacketsFromQueue(std::future<void> futureStopper) {
                 std::copy(package_pair.second.begin(), package_pair.second.end(), arr);
 
                 auto *pack_to_send = transmitter_data_->packUp(package_pair.first, arr);
-                fwrite(pack_to_send, sizeof(char), transmitter_data_->getPsize() + TransmitterData::PACKET_HEADER_SIZE, stdout);
-                std::cout << std::endl;
                 writeToRexmitCast(pack_to_send, transmitter_data_->getPsize() + TransmitterData::PACKET_HEADER_SIZE);
             }
         }
