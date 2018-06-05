@@ -21,7 +21,7 @@ void Transmitter::startTransmitter() {
         throw ServerCreateException("setsockopt broadcast");
     }
 
-    int TTL_VALUE = 4; // ?
+    int TTL_VALUE = 4; // depth of sent packets
     optval = TTL_VALUE;
     if (setsockopt(sock_, IPPROTO_IP, IP_MULTICAST_TTL, reinterpret_cast<void *>(&optval), sizeof optval) < 0) {
         close(sock_);
@@ -43,7 +43,7 @@ void Transmitter::startTransmitter() {
     ctrl_port_listener_ = new CtrlPortListener(transmitter_data_, data_queue_);
 
     std::future<void> future_rexmit_stopper = exit_rexmit_signal_.get_future();
-    ctrl_port_rexmit_thread_ = std::thread(&CtrlPortListener::rexmitQueue, ctrl_port_listener_, std::move(future_rexmit_stopper));
+    ctrl_port_rexmit_thread_ = std::thread(&CtrlPortListener::recastPacketsFromQueue, ctrl_port_listener_, std::move(future_rexmit_stopper));
     std::future<void> future_listener_stopper = exit_listener_signal_.get_future();
     ctrl_port_listener_thread_ = std::thread(&CtrlPortListener::listenOnCtrlPort, ctrl_port_listener_, std::move(future_listener_stopper));
 }
@@ -53,23 +53,22 @@ void Transmitter::readStdIn() {
 
     uint64_t first_byte_num = 0;
 
-    auto *input = new Byte[transmitter_data_->getDataSize()];
+    auto *input = new Byte[transmitter_data_->getPsize()];
 
-    while (fread(input, sizeof(Byte), transmitter_data_->getDataSize(), stdin)) {
-        data_queue_->push(input, transmitter_data_->getDataSize());
+    while (fread(input, sizeof(Byte), transmitter_data_->getPsize(), stdin)) {
+        data_queue_->push(input, transmitter_data_->getPsize());
 
-        unsigned char *pack_to_send = pack_up(first_byte_num, input);
-        fwrite(pack_to_send + 16, sizeof(char), transmitter_data_->getDataSize(), stdout);
-        writeToClient(pack_to_send, transmitter_data_->getPsize());
-        first_byte_num += transmitter_data_->getDataSize();
+        Byte *pack_to_send = transmitter_data_->packUp(first_byte_num, input);
+        writeToClient(pack_to_send, transmitter_data_->getPsize() + TransmitterData::PACKET_HEADER_SIZE);
+        first_byte_num += transmitter_data_->getPsize();
     }
-
-    //std::cout << "O chuj TU chodzi xD" << std::endl;
 
     exit_rexmit_signal_.set_value();
     exit_listener_signal_.set_value();
     ctrl_port_rexmit_thread_.join();
     ctrl_port_listener_thread_.join();
+
+    delete[] input;
 }
 
 void Transmitter::writeToClient(Transmitter::Byte *data, size_t data_size) {
@@ -80,44 +79,4 @@ void Transmitter::writeToClient(Transmitter::Byte *data, size_t data_size) {
     }
 
     delete[] data;
-}
-
-Transmitter::Byte *Transmitter::pack_up(uint64_t first_byte_num, Byte *audio_data) {
-    auto *to_return = new Byte[transmitter_data_->getPsize()];
-
-    uint64_t session_id = transmitter_data_->getSessionId();
-
-    // TODO: Change it to a function
-    to_return[0]=session_id>>56&0xFF;
-    to_return[1]=session_id>>48&0xFF;
-    to_return[2]=session_id>>40&0xFF;
-    to_return[3]=session_id>>32&0xFF;
-    to_return[4]=session_id>>24&0xFF;
-    to_return[5]=session_id>>16&0xFF;
-    to_return[6]=session_id>>8&0xFF;
-    to_return[7]=session_id>>0&0xFF;
-
-    /*to_return[8] = session_id>>0;
-    to_return[9] = session_id>>8;
-    to_return[10] = session_id>>16;
-    to_return[11] = session_id>>24;
-    to_return[12] = session_id>>32;
-    to_return[13] = session_id>>40;
-    to_return[14] = session_id>>48;
-    to_return[15] = session_id>>56;*/
-
-    to_return[8]=first_byte_num>>56&0xFF;
-    to_return[9]=first_byte_num>>48&0xFF;
-    to_return[10]=first_byte_num>>40&0xFF;
-    to_return[11]=first_byte_num>>32&0xFF;
-    to_return[12]=first_byte_num>>24&0xFF;
-    to_return[13]=first_byte_num>>16&0xFF;
-    to_return[14]=first_byte_num>>8&0xFF;
-    to_return[15]=first_byte_num>>0&0xFF;
-
-    for (uint64_t i = 16; i < transmitter_data_->getPsize(); ++i) {
-        to_return[i] = audio_data[i - 16];
-    }
-
-    return to_return;
 }

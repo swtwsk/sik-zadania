@@ -60,12 +60,13 @@ CtrlPortListener::CtrlPortListener(TransmitterData *transmitter_data, DataQueueP
     }
 
     rexm_send_address_.sin_family = AF_INET;
-    rexm_send_address_.sin_port = htons(transmitter_data_->getCtrlPort() + 2); // TODO: CHECK IT!!!!
+    rexm_send_address_.sin_port = htons(transmitter_data_->getCtrlPort());
     if (inet_aton(transmitter_data_->getMcastAddr().c_str(), &rexm_send_address_.sin_addr) == 0) {
         close(rexm_send_sock_);
         throw CtrlServerCreateException("inet_aton");
     }
-    if (connect(rexm_send_sock_, reinterpret_cast<struct sockaddr *>(&rexm_send_address_), sizeof rexm_send_address_) < 0) {
+    if (connect(rexm_send_sock_,
+                reinterpret_cast<struct sockaddr *>(&rexm_send_address_), sizeof rexm_send_address_) < 0) {
         close(rexm_send_sock_);
         throw CtrlServerCreateException("connect");
     }
@@ -86,15 +87,21 @@ void CtrlPortListener::writeToRexmitCast(CtrlPortListener::Byte *data, size_t da
     delete[] data;
 }
 
-void CtrlPortListener::rexmitQueue(std::future<void> futureStopper) {
+void CtrlPortListener::recastPacketsFromQueue(std::future<void> futureStopper) {
     while(futureStopper.wait_for(std::chrono::milliseconds(rtime_)) != std::future_status::ready) {
         if(!rexmit_set_.empty()) {
             std::vector<uint64_t> packages_requests = rexmit_set_.elements();
-            std::cout << "REXMIT: SENDING ";
-            for (auto req : packages_requests) {
-                std::cout << req << " ";
+
+            auto packages_to_retransmit = data_queue_->getPackets(packages_requests, transmitter_data_->getPsize());
+            for (auto &package_pair : packages_to_retransmit) {
+                auto *arr = new Byte[transmitter_data_->getPsize()];
+                std::copy(package_pair.second.begin(), package_pair.second.end(), arr);
+
+                auto *pack_to_send = transmitter_data_->packUp(package_pair.first, arr);
+                fwrite(pack_to_send, sizeof(char), transmitter_data_->getPsize() + TransmitterData::PACKET_HEADER_SIZE, stdout);
+                std::cout << std::endl;
+                writeToRexmitCast(pack_to_send, transmitter_data_->getPsize() + TransmitterData::PACKET_HEADER_SIZE);
             }
-            std::cout << std::endl;
         }
     }
 }
@@ -123,7 +130,6 @@ void CtrlPortListener::handleRexmit(const std::string &rexmit_message) {
 
     while (end != string::npos) {
         string package_nmb = rexmit_list.substr(begin, end - begin);
-        std::cout << package_nmb << " ";
 
         try {
             uint64_t to_insert = std::stoull(package_nmb);
@@ -188,7 +194,7 @@ void CtrlPortListener::listenOnCtrlPort(std::future<void> futureStopper) {
         long elapsed = (tValAfter.tv_sec - tValBefore.tv_sec) * 1000000
             + tValAfter.tv_usec - tValBefore.tv_usec;
 
-        if (elapsed > rtime_ * 1000) {
+        if (static_cast<uint64_t>(elapsed) > rtime_ * 1000) {
             gettimeofday(&tValBefore, NULL);
 
             timeout.tv_sec = 0;

@@ -16,7 +16,7 @@
 
 class Transmitter {
 public:
-    using Byte = uint8_t;
+    using Byte = TransmitterData::Byte;
 
     explicit Transmitter(TransmitterData *transmitter_data);
 
@@ -25,19 +25,13 @@ public:
     void readStdIn();
     void writeToClient(Transmitter::Byte *data, size_t data_size);
 
-    Byte *pack_up(uint64_t first_byte_num, Byte *audio_data);
-
-    // DEBUG
-    void printTransmitter();
-
 private:
-    using DataQueueT = ConcurrentQueue<Byte>;
+    using DataQueueT = ConcurrentDeque<Byte>;
     using DataQueuePtr = std::shared_ptr<DataQueueT>;
     using CtrlPortListenerPtr = CtrlPortListener *;
 
     int sock_;
     struct sockaddr_in remote_address_;
-    struct ip_mreq ip_mreq_;
 
     TransmitterData *transmitter_data_;
     DataQueuePtr data_queue_;

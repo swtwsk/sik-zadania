@@ -2,7 +2,7 @@
 #define CONCURRENTQUEUE_H
 
 #include <vector>
-#include <queue>
+#include <deque>
 #include <set>
 #include <thread>
 #include <mutex>
@@ -10,23 +10,25 @@
 #include <utility>
 
 template <class T>
-class ConcurrentQueue {
+class ConcurrentDeque {
 public:
-    explicit ConcurrentQueue(uint64_t max_length)
-        : max_length_(max_length), queue_(std::queue<T>()), last_element_idx_(0) {}
-    ConcurrentQueue(const ConcurrentQueue &) = delete;            // disable copying
-    ConcurrentQueue& operator=(const ConcurrentQueue &) = delete; // disable assignment
+    using RetransmissionPairVector = std::vector<std::pair<uint64_t, std::vector<T>>>;
+
+    explicit ConcurrentDeque(uint64_t max_length)
+        : max_length_(max_length), deque_(std::deque<T>()), last_element_idx_(0) {}
+    ConcurrentDeque(const ConcurrentDeque &) = delete;            // disable copying
+    ConcurrentDeque& operator=(const ConcurrentDeque &) = delete; // disable assignment
 
     std::pair<T, uint64_t> pop() {
         std::unique_lock<std::mutex> lock(mutex_); // RAII
 
-        while (queue_.empty()) {
+        while (deque_.empty()) {
             cv_.wait(lock);
         }
 
-        auto item = queue_.front();
-        auto index = last_element_idx_ - queue_.size();
-        queue_.pop();
+        auto item = deque_.front();
+        auto index = last_element_idx_ - deque_.size();
+        deque_.pop_front();
 
         return std::make_pair(item, index);
     }
@@ -34,12 +36,12 @@ public:
     void push(const T& item) {
         std::unique_lock<std::mutex> lock(mutex_); // RAII
 
-        if (queue_.size() > max_length_) {
-            queue_.pop();
+        if (deque_.size() > max_length_) {
+            deque_.pop_front();
         }
 
         ++last_element_idx_;
-        queue_.push(item);
+        deque_.push_front(item);
         lock.unlock();
         cv_.notify_one();
     }
@@ -47,12 +49,12 @@ public:
     void push(T&& item) {
         std::unique_lock<std::mutex> lock(mutex_); // RAII
 
-        if (queue_.size() > max_length_) {
-            queue_.pop();
+        if (deque_.size() > max_length_) {
+            deque_.pop_front();
         }
 
         ++last_element_idx_;
-        queue_.push(std::move(item));
+        deque_.push_front(std::move(item));
         lock.unlock();
         cv_.notify_one();
     }
@@ -61,11 +63,11 @@ public:
         std::unique_lock<std::mutex> lock(mutex_); // RAII
 
         for (auto i = 0U; i < item_count; ++i) {
-            queue_.push(items[i]);
+            deque_.push_front(items[i]);
             ++last_element_idx_;
 
-            if (queue_.size() > max_length_) {
-                queue_.pop();
+            if (deque_.size() > max_length_) {
+                deque_.pop_front();
             }
         }
 
@@ -73,14 +75,39 @@ public:
         cv_.notify_one();
     }
 
+    RetransmissionPairVector getPackets(const std::vector<uint64_t> &packets_idxs, uint64_t packet_data_size) {
+        RetransmissionPairVector to_return;
+
+        std::unique_lock<std::mutex> lock(mutex_); // RAII
+        uint64_t f_idx = last_element_idx_ - deque_.size();
+
+        for (auto &packet_idx : packets_idxs) {
+            if (packet_idx < f_idx) {
+                continue;
+            }
+
+            uint64_t deq_idx = packet_idx - f_idx;
+            if (deq_idx + packet_data_size > deque_.size()) {
+                break;
+            }
+
+            auto it_beg = deque_.begin() + deq_idx;
+            auto it_end = it_beg + packet_data_size - 1;
+
+            to_return.push_back(std::make_pair(packet_idx, std::vector<T>(it_beg, it_end)));
+        }
+
+        return to_return;
+    }
+
     bool empty() const {
         // we use this queue in 1 producer/1 consumer pattern so nobody would "eat" elements from queue
-        return queue_.empty();
+        return deque_.empty();
     }
 
 private:
     uint64_t max_length_;
-    std::queue<T> queue_;
+    std::deque<T> deque_;
     uint64_t last_element_idx_;
 
     std::mutex mutex_;

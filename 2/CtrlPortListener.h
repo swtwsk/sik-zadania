@@ -12,8 +12,8 @@
 
 class CtrlPortListener {
 private:
-    using Byte = uint8_t;
-    using DataQueueT = ConcurrentQueue<Byte>;
+    using Byte = TransmitterData::Byte;
+    using DataQueueT = ConcurrentDeque<Byte>;
     using DataQueuePtr = std::shared_ptr<DataQueueT>;
     using RexmitSetT = ConcurrentSet<uint64_t>;
 
@@ -22,7 +22,7 @@ public:
     ~CtrlPortListener();
 
     void writeToRexmitCast(Byte *data, size_t data_size);
-    void rexmitQueue(std::future<void> futureStopper);
+    void recastPacketsFromQueue(std::future<void> futureStopper);
 
     void handleLookup(struct sockaddr_in &client_address);
     void handleRexmit(const std::string &rexmit_message);
