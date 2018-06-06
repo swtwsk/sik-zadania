@@ -111,6 +111,7 @@ int main(int argc, char *argv[]) {
     }
 
     transmitter->readStdIn();
+    transmitter->stopTransmitter();
 
     return 0;
 }

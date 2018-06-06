@@ -25,18 +25,21 @@ CtrlPortListener::CtrlPortListener(TransmitterData *transmitter_data, DataQueueP
     if (inet_aton(transmitter_data_->getMcastAddr().c_str(), &ctrl_ip_mreq_.imr_multiaddr) == 0) {
         throw CtrlServerCreateException("inet_aton");
     }
-    if (setsockopt(ctrl_recv_sock_, IPPROTO_IP, IP_ADD_MEMBERSHIP, (void*)&ctrl_ip_mreq_, sizeof ctrl_ip_mreq_) < 0) {
+    if (setsockopt(ctrl_recv_sock_, IPPROTO_IP, IP_ADD_MEMBERSHIP, reinterpret_cast<void *>(&ctrl_ip_mreq_),
+                   sizeof ctrl_ip_mreq_) < 0) {
         throw CtrlServerCreateException("setsockopt");
     }
 
-    if (setsockopt(ctrl_recv_sock_, SOL_SOCKET, SO_REUSEADDR, (void*)&ctrl_ip_mreq_, sizeof ctrl_ip_mreq_) < 0) {
+    if (setsockopt(ctrl_recv_sock_, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<void *>(&ctrl_ip_mreq_),
+                   sizeof ctrl_ip_mreq_) < 0) {
         throw CtrlServerCreateException("setsockopt");
     }
 
     ctrl_recv_address_.sin_family = AF_INET;
     ctrl_recv_address_.sin_addr.s_addr = htonl(INADDR_ANY);
     ctrl_recv_address_.sin_port = htons(transmitter_data_->getCtrlPort());
-    if (bind(ctrl_recv_sock_, (struct sockaddr *)&ctrl_recv_address_, sizeof ctrl_recv_address_) < 0) {
+    if (bind(ctrl_recv_sock_, reinterpret_cast<struct sockaddr *>(&ctrl_recv_address_),
+             sizeof ctrl_recv_address_) < 0) {
         throw CtrlServerCreateException("bind");
     }
 
@@ -46,15 +49,18 @@ CtrlPortListener::CtrlPortListener(TransmitterData *transmitter_data, DataQueueP
         throw CtrlServerCreateException("socket");
     }
 
-    int optval = 1;
-    if (setsockopt(rexm_send_sock_, SOL_SOCKET, SO_BROADCAST, reinterpret_cast<void *>(&optval), sizeof optval) < 0) {
+    const static int ENABLE_BROADCAST_VALUE = 1;
+    int optval = ENABLE_BROADCAST_VALUE;
+    if (setsockopt(rexm_send_sock_, SOL_SOCKET, SO_BROADCAST, reinterpret_cast<void *>(&optval),
+                   sizeof optval) < 0) {
         close(rexm_send_sock_);
         throw CtrlServerCreateException("setsockopt broadcast");
     }
 
-    int TTL_VALUE = 4;
+    const static int TTL_VALUE = 4;
     optval = TTL_VALUE;
-    if (setsockopt(rexm_send_sock_, IPPROTO_IP, IP_MULTICAST_TTL, reinterpret_cast<void *>(&optval), sizeof optval) < 0) {
+    if (setsockopt(rexm_send_sock_, IPPROTO_IP, IP_MULTICAST_TTL, reinterpret_cast<void *>(&optval),
+                   sizeof optval) < 0) {
         close(rexm_send_sock_);
         throw CtrlServerCreateException("setsockopt multicast ttl");
     }
@@ -65,8 +71,8 @@ CtrlPortListener::CtrlPortListener(TransmitterData *transmitter_data, DataQueueP
         close(rexm_send_sock_);
         throw CtrlServerCreateException("inet_aton");
     }
-    if (connect(rexm_send_sock_,
-                reinterpret_cast<struct sockaddr *>(&rexm_send_address_), sizeof rexm_send_address_) < 0) {
+    if (connect(rexm_send_sock_, reinterpret_cast<struct sockaddr *>(&rexm_send_address_),
+                sizeof rexm_send_address_) < 0) {
         close(rexm_send_sock_);
         throw CtrlServerCreateException("connect");
     }
@@ -77,29 +83,35 @@ CtrlPortListener::~CtrlPortListener() {
     close(ctrl_recv_sock_);
 }
 
-void CtrlPortListener::writeToRexmitCast(CtrlPortListener::Byte *data, size_t data_size){
+void CtrlPortListener::writeRetransmission(CtrlPortListener::Byte *data, size_t data_size){
     ssize_t len;
     len = write(rexm_send_sock_, data, data_size);
     if (static_cast<size_t>(len) != data_size) {
         throw ServerRunException("Error in write");
     }
-
-    delete[] data;
 }
 
-void CtrlPortListener::recastPacketsFromQueue(std::future<void> futureStopper) {
+void CtrlPortListener::prepareAndSendRetransmissionPackets(std::vector<NumType> packages_requests) {
+    auto packages_to_retransmit = data_queue_->getPackets(packages_requests, transmitter_data_->getPsize());
+    for (auto &package_pair : packages_to_retransmit) {
+        auto *arr = new Byte[transmitter_data_->getPsize()];
+        std::copy(package_pair.second.begin(), package_pair.second.end(), arr);
+
+        auto *pack_to_send = transmitter_data_->packUp(package_pair.first, arr);
+        writeRetransmission(pack_to_send, transmitter_data_->getPsize() + TransmitterData::PACKET_HEADER_SIZE);
+
+        delete[] arr;
+        delete[] pack_to_send;
+    }
+}
+
+void CtrlPortListener::handleRetransmissions(std::future<void> futureStopper) {
     while(futureStopper.wait_for(std::chrono::milliseconds(rtime_)) != std::future_status::ready) {
         if(!rexmit_set_.empty()) {
-            std::vector<uint64_t> packages_requests = rexmit_set_.elements();
-
-            auto packages_to_retransmit = data_queue_->getPackets(packages_requests, transmitter_data_->getPsize());
-            for (auto &package_pair : packages_to_retransmit) {
-                auto *arr = new Byte[transmitter_data_->getPsize()];
-                std::copy(package_pair.second.begin(), package_pair.second.end(), arr);
-
-                auto *pack_to_send = transmitter_data_->packUp(package_pair.first, arr);
-                writeToRexmitCast(pack_to_send, transmitter_data_->getPsize() + TransmitterData::PACKET_HEADER_SIZE);
-            }
+            std::vector<NumType> packages_requests = rexmit_set_.elements();
+            auto retransmitter = std::thread(
+                &CtrlPortListener::prepareAndSendRetransmissionPackets, this, packages_requests);
+            retransmitter.detach();
         }
     }
 }
@@ -130,7 +142,7 @@ void CtrlPortListener::handleRexmit(const std::string &rexmit_message) {
         string package_nmb = rexmit_list.substr(begin, end - begin);
 
         try {
-            uint64_t to_insert = std::stoull(package_nmb);
+            NumType to_insert = std::stoull(package_nmb);
             rexmit_set_.insert(to_insert);
         }
         catch (std::invalid_argument) {}
@@ -141,7 +153,7 @@ void CtrlPortListener::handleRexmit(const std::string &rexmit_message) {
     }
 
     try {
-        uint64_t to_insert = std::stoull(rexmit_list.substr(begin, end));
+        NumType to_insert = std::stoull(rexmit_list.substr(begin, end));
         rexmit_set_.insert(to_insert);
     }
     catch (std::invalid_argument) {}
@@ -192,7 +204,7 @@ void CtrlPortListener::listenOnCtrlPort(std::future<void> futureStopper) {
         long elapsed = (tValAfter.tv_sec - tValBefore.tv_sec) * 1000000
             + tValAfter.tv_usec - tValBefore.tv_usec;
 
-        if (static_cast<uint64_t>(elapsed) > rtime_ * 1000) {
+        if (static_cast<NumType>(elapsed) > rtime_ * 1000) {
             gettimeofday(&tValBefore, NULL);
 
             timeout.tv_sec = 0;

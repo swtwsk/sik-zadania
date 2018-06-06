@@ -13,19 +13,16 @@
 class CtrlPortListener {
 private:
     using Byte = TransmitterData::Byte;
+    using NumType = TransmitterData::NumType;
     using DataQueueT = ConcurrentDeque<Byte>;
     using DataQueuePtr = std::shared_ptr<DataQueueT>;
-    using RexmitSetT = ConcurrentSet<uint64_t>;
+    using RexmitSetT = ConcurrentSet<NumType>;
 
 public:
     explicit CtrlPortListener(TransmitterData *transmitter_data, DataQueuePtr data_queue);
     ~CtrlPortListener();
 
-    void writeToRexmitCast(Byte *data, size_t data_size);
-    void recastPacketsFromQueue(std::future<void> futureStopper);
-
-    void handleLookup(struct sockaddr_in &client_address);
-    void handleRexmit(const std::string &rexmit_message);
+    void handleRetransmissions(std::future<void> futureStopper);
     void listenOnCtrlPort(std::future<void> futureStopper);
 
 private:
@@ -40,13 +37,18 @@ private:
 
     TransmitterData *transmitter_data_;
     DataQueuePtr data_queue_;
-    ConcurrentSet<uint64_t> rexmit_set_;
+    ConcurrentSet<NumType> rexmit_set_;
 
-    uint64_t rtime_;
+    NumType rtime_;
 
     const std::string LOOKUP_MSG = "ZERO_SEVEN_COME_IN";
     const std::string REXMIT_MSG = "LOUDER_PLEASE";
     const static size_t BUFFER_SIZE = 65536; // MAX UDP PACKET SIZE (including IP & UPD headers)
+
+    void handleLookup(struct sockaddr_in &client_address);
+    void handleRexmit(const std::string &rexmit_message);
+    void writeRetransmission(Byte *data, size_t data_size);
+    void prepareAndSendRetransmissionPackets(std::vector<NumType> packages_requests);
 };
 
 #endif //CTRLPORTLISTENER_H

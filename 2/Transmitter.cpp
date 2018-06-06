@@ -15,13 +15,14 @@ void Transmitter::startTransmitter() {
         throw ServerCreateException("socket");
     }
 
-    int optval = 1; // ?
+    const static int ENABLE_BROADCAST_VALUE = 1;
+    int optval = ENABLE_BROADCAST_VALUE;
     if (setsockopt(sock_, SOL_SOCKET, SO_BROADCAST, reinterpret_cast<void *>(&optval), sizeof optval) < 0) {
         close(sock_);
         throw ServerCreateException("setsockopt broadcast");
     }
 
-    int TTL_VALUE = 4; // depth of sent packets
+    const static int TTL_VALUE = 4; // depth of sent packets
     optval = TTL_VALUE;
     if (setsockopt(sock_, IPPROTO_IP, IP_MULTICAST_TTL, reinterpret_cast<void *>(&optval), sizeof optval) < 0) {
         close(sock_);
@@ -43,15 +44,21 @@ void Transmitter::startTransmitter() {
     ctrl_port_listener_ = new CtrlPortListener(transmitter_data_, data_queue_);
 
     std::future<void> future_rexmit_stopper = exit_rexmit_signal_.get_future();
-    ctrl_port_rexmit_thread_ = std::thread(&CtrlPortListener::recastPacketsFromQueue, ctrl_port_listener_, std::move(future_rexmit_stopper));
+    ctrl_port_rexmit_thread_ = std::thread(
+        &CtrlPortListener::handleRetransmissions, ctrl_port_listener_, std::move(future_rexmit_stopper));
+
     std::future<void> future_listener_stopper = exit_listener_signal_.get_future();
-    ctrl_port_listener_thread_ = std::thread(&CtrlPortListener::listenOnCtrlPort, ctrl_port_listener_, std::move(future_listener_stopper));
+    ctrl_port_listener_thread_ = std::thread(
+        &CtrlPortListener::listenOnCtrlPort, ctrl_port_listener_, std::move(future_listener_stopper));
+}
+
+void Transmitter::stopTransmitter() {
+    close(sock_);
+    delete ctrl_port_listener_;
 }
 
 void Transmitter::readStdIn() {
-    using std::cin;
-
-    uint64_t first_byte_num = 0;
+    NumType first_byte_num = 0;
 
     auto *input = new Byte[transmitter_data_->getPsize()];
 
@@ -60,6 +67,8 @@ void Transmitter::readStdIn() {
 
         Byte *pack_to_send = transmitter_data_->packUp(first_byte_num, input);
         writeToClient(pack_to_send, transmitter_data_->getPsize() + TransmitterData::PACKET_HEADER_SIZE);
+        delete[] pack_to_send;
+
         first_byte_num += transmitter_data_->getPsize();
     }
 
@@ -77,6 +86,4 @@ void Transmitter::writeToClient(Transmitter::Byte *data, size_t data_size) {
     if (static_cast<size_t>(len) != data_size) {
         throw ServerRunException("Error in write");
     }
-
-    delete[] data;
 }

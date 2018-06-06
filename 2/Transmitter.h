@@ -21,11 +21,13 @@ public:
     explicit Transmitter(TransmitterData *transmitter_data);
 
     void startTransmitter();
+    void stopTransmitter();
 
     void readStdIn();
-    void writeToClient(Transmitter::Byte *data, size_t data_size);
+    void writeToClient(Byte *data, size_t data_size);
 
 private:
+    using NumType = TransmitterData::NumType;
     using DataQueueT = ConcurrentDeque<Byte>;
     using DataQueuePtr = std::shared_ptr<DataQueueT>;
     using CtrlPortListenerPtr = CtrlPortListener *;

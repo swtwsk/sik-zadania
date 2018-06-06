@@ -15,4 +15,5 @@ macro (add_executable _name)
     endif()
 endmacro()
 
-add_executable(2 main.cpp Transmitter.cpp Transmitter.h CtrlPortListener.cpp CtrlPortListener.h ConcurrentContainers.h ServerException.h TransmitterData.h TransmitterData.cpp)
+add_executable(2 main.cpp Transmitter.cpp Transmitter.h CtrlPortListener.cpp CtrlPortListener.h ConcurrentContainers.h
+        ServerException.h TransmitterData.h TransmitterData.cpp)

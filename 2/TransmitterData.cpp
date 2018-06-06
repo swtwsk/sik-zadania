@@ -4,7 +4,7 @@ TransmitterData::TransmitterData()
     : mcast_addr_(""), data_port_(DEFAULT_DATA_PORT), ctrl_port_(DEFAULT_CTRL_PORT), psize_(DEFAULT_PSIZE),
       fsize_(DEFAULT_FSIZE), rtime_(DEFAULT_RTIME), nazwa_(DEFAULT_NAZWA) {
 
-    session_id_ = static_cast<uint64_t>(time(NULL));
+    session_id_ = static_cast<NumType>(time(NULL));
 }
 
 void TransmitterData::setMcastAddr(const std::string &mcast_addr) {
@@ -16,13 +16,13 @@ void TransmitterData::setDataPort(in_port_t data_port) {
 void TransmitterData::setCtrlPort(in_port_t ctrl_port) {
     ctrl_port_ = ctrl_port;
 }
-void TransmitterData::setPsize(uint64_t psize) {
+void TransmitterData::setPsize(NumType psize) {
     psize_ = psize;
 }
-void TransmitterData::setFsize(uint64_t fsize) {
+void TransmitterData::setFsize(NumType fsize) {
     fsize_ = fsize;
 }
-void TransmitterData::setRtime(uint64_t rtime) {
+void TransmitterData::setRtime(NumType rtime) {
     rtime_ = rtime;
 }
 void TransmitterData::setNazwa(const std::string &nazwa) {
@@ -38,20 +38,20 @@ in_port_t TransmitterData::getDataPort() const {
 in_port_t TransmitterData::getCtrlPort() const {
     return ctrl_port_;
 }
-uint64_t TransmitterData::getPsize() const {
+TransmitterData::NumType TransmitterData::getPsize() const {
     return psize_;
 }
-uint64_t TransmitterData::getFsize() const {
+TransmitterData::NumType TransmitterData::getFsize() const {
     return fsize_;
 }
-uint64_t TransmitterData::getRtime() const {
+TransmitterData::NumType TransmitterData::getRtime() const {
     return rtime_;
 }
 const std::string &TransmitterData::getNazwa() const {
     return nazwa_;
 }
 
-void htonull(TransmitterData::Byte *data, size_t start_index, uint64_t val) {
+void htonull(TransmitterData::Byte *data, size_t start_index, TransmitterData::NumType val) {
     static const int num = 42;
 
     // Check the endianness
@@ -77,14 +77,14 @@ void htonull(TransmitterData::Byte *data, size_t start_index, uint64_t val) {
     }
 }
 
-TransmitterData::Byte *TransmitterData::packUp(uint64_t first_byte_num, TransmitterData::Byte *audio_data) {
+TransmitterData::Byte *TransmitterData::packUp(NumType first_byte_num, TransmitterData::Byte *audio_data) {
     auto *to_return = new Byte[psize_ + PACKET_HEADER_SIZE];
 
     htonull(to_return, 0, session_id_);
     htonull(to_return, 8, first_byte_num);
 
-    for (uint64_t i = 0; i < psize_; ++i) {
-        to_return[i + 16] = audio_data[i];
+    for (size_t i = 0; i < psize_; ++i) {
+        to_return[i + PACKET_HEADER_SIZE] = audio_data[i];
     }
 
     return to_return;
