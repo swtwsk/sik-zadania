@@ -22,8 +22,8 @@ public:
     explicit CtrlPortListener(TransmitterData *transmitter_data, DataQueuePtr data_queue);
     ~CtrlPortListener();
 
-    void handleRetransmissions(std::future<void> futureStopper);
-    void listenOnCtrlPort(std::future<void> futureStopper);
+    void handleRetransmissions(std::future<void> future_stopper);
+    void listenOnCtrlPort(std::future<void> future_stopper);
 
 private:
     // CTRL_LISTENER

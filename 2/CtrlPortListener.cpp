@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <string>
 #include <sstream>
+#include <list>
 
 #include <cerrno>
 #include <cstring>
@@ -105,13 +106,21 @@ void CtrlPortListener::prepareAndSendRetransmissionPackets(std::vector<NumType> 
     }
 }
 
-void CtrlPortListener::handleRetransmissions(std::future<void> futureStopper) {
-    while(futureStopper.wait_for(std::chrono::milliseconds(rtime_)) != std::future_status::ready) {
+void CtrlPortListener::handleRetransmissions(std::future<void> future_stopper) {
+    std::list<std::future<void>> retransmission_tasks;
+
+    while(future_stopper.wait_for(std::chrono::milliseconds(rtime_)) != std::future_status::ready) {
         if(!rexmit_set_.empty()) {
             std::vector<NumType> packages_requests = rexmit_set_.elements();
-            auto retransmitter = std::thread(
-                &CtrlPortListener::prepareAndSendRetransmissionPackets, this, packages_requests);
-            retransmitter.detach();
+            retransmission_tasks.push_back(std::async(
+                &CtrlPortListener::prepareAndSendRetransmissionPackets, this, packages_requests));
+        }
+
+        for (auto it = retransmission_tasks.begin(); it != retransmission_tasks.end(); ++it) {
+            if ((*it).wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+                (*it).get();
+                it = retransmission_tasks.erase(it);
+            }
         }
     }
 }
@@ -160,7 +169,7 @@ void CtrlPortListener::handleRexmit(const std::string &rexmit_message) {
     catch (std::out_of_range) {}
 }
 
-void CtrlPortListener::listenOnCtrlPort(std::future<void> futureStopper) {
+void CtrlPortListener::listenOnCtrlPort(std::future<void> future_stopper) {
     struct timeval timeout;
     timeout.tv_sec = 0;
     timeout.tv_usec = rtime_ * 1000; // milliseconds to microseconds
@@ -177,7 +186,7 @@ void CtrlPortListener::listenOnCtrlPort(std::future<void> futureStopper) {
     /* waiting for 0 seconds seems like a bad idea (probably slaughtering the processor)
      * but inside of a loop there is a blocking, UNIX-provided function anyway so it is fairly safe
      */
-    while(futureStopper.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+    while(future_stopper.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
         struct sockaddr_in client_address;
         socklen_t rcva_len;
         ssize_t rcv_len = 0;
