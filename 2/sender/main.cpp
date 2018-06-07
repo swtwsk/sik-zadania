@@ -3,6 +3,7 @@
 #include <cstring>
 #include <sstream>
 #include <string>
+#include <netinet/in.h>
 
 #include "TransmitterData.h"
 #include "Transmitter.h"

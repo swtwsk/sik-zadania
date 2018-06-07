@@ -77,6 +77,8 @@ CtrlPortListener::CtrlPortListener(TransmitterData *transmitter_data, DataQueueP
 }
 
 CtrlPortListener::~CtrlPortListener() {
+    setsockopt(ctrl_recv_sock_, IPPROTO_IP, IP_DROP_MEMBERSHIP,
+               reinterpret_cast<void *>(&ctrl_ip_mreq_), sizeof ctrl_ip_mreq_);
     close(rexm_send_sock_);
     close(ctrl_recv_sock_);
 }
@@ -125,7 +127,7 @@ void CtrlPortListener::handleRetransmissions(std::future<void> future_stopper) {
 void CtrlPortListener::handleLookup(struct sockaddr_in &client_address) {
     std::stringstream ss;
     ss << "BOREWICZ_HERE " << transmitter_data_->getMcastAddr() << " " << transmitter_data_->getDataPort()
-       << " " << transmitter_data_->getNazwa();
+       << " " << transmitter_data_->getNazwa() << "\n";
 
     std::string response = ss.str();
     sendto(ctrl_recv_sock_, response.c_str(), response.length(), 0,

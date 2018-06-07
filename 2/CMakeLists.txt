@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(sikradio-sender)
+project(sikradio)
 
 find_package ( Threads REQUIRED )
 
@@ -15,5 +15,6 @@ macro (add_executable _name)
     endif()
 endmacro()
 
-add_executable(sikradio-sender main.cpp Transmitter.cpp Transmitter.h CtrlPortListener.cpp CtrlPortListener.h
-        ConcurrentContainers.h ServerException.h TransmitterData.h TransmitterData.cpp)
+add_executable(sikradio-sender sender/main.cpp sender/Transmitter.cpp sender/Transmitter.h sender/CtrlPortListener.cpp
+        sender/CtrlPortListener.h sender/ConcurrentContainers.h sender/ServerException.h sender/TransmitterData.h
+        sender/TransmitterData.cpp)

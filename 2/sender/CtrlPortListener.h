@@ -40,7 +40,7 @@ private:
 
     NumType rtime_;
 
-    const std::string LOOKUP_MSG = "ZERO_SEVEN_COME_IN";
+    const std::string LOOKUP_MSG = "ZERO_SEVEN_COME_IN\n";
     const std::string REXMIT_MSG = "LOUDER_PLEASE";
     const static size_t BUFFER_SIZE = 65536; // MAX UDP PACKET SIZE (including IP & UPD headers)
 
