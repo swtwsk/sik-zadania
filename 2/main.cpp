@@ -3,10 +3,10 @@
 #include <cstring>
 #include <sstream>
 #include <string>
-#include <netinet/in.h>
 
 #include "TransmitterData.h"
 #include "Transmitter.h"
+#include "ServerException.h"
 
 std::pair<bool, char **> cmdOptionExists(char** begin, char** end, const std::string& option) {
     char **it = std::find(begin, end, option);

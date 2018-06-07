@@ -1,17 +1,14 @@
+#include <sys/time.h>
+#include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <future>
-#include <iostream>
-#include <sys/time.h>
-#include <sys/socket.h>
 #include <string>
 #include <sstream>
 #include <list>
 
-#include <cerrno>
-#include <cstring>
-
 #include "CtrlPortListener.h"
+#include "ServerException.h"
 
 CtrlPortListener::CtrlPortListener(TransmitterData *transmitter_data, DataQueuePtr data_queue)
     : transmitter_data_(transmitter_data), data_queue_(data_queue), rtime_(transmitter_data->getRtime()) {

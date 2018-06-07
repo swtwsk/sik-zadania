@@ -1,18 +1,13 @@
 #ifndef TRANSMITTER_H
 #define TRANSMITTER_H
 
-#include <iostream>
-#include <string>
 #include <memory>
-#include <netinet/in.h>
 #include <future>
 #include <thread>
-#include <deque>
 
 #include "TransmitterData.h"
 #include "CtrlPortListener.h"
 #include "ConcurrentContainers.h"
-#include "ServerException.h"
 
 class Transmitter {
 public:

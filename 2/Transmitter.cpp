@@ -5,6 +5,7 @@
 #include <ctime>
 
 #include "Transmitter.h"
+#include "ServerException.h"
 
 Transmitter::Transmitter(TransmitterData *transmitter_data)
     : transmitter_data_(transmitter_data), data_queue_(std::make_shared<DataQueueT>(transmitter_data->getFsize())) {}

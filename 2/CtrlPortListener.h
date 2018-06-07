@@ -2,13 +2,12 @@
 #define CTRLPORTLISTENER_H
 
 #include <netinet/in.h>
-#include <queue>
 #include <memory>
 #include <future>
+#include <vector>
 
 #include "TransmitterData.h"
 #include "ConcurrentContainers.h"
-#include "ServerException.h"
 
 class CtrlPortListener {
 private:
