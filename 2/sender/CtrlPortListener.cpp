@@ -2,7 +2,6 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include <future>
 #include <string>
 #include <sstream>
 #include <list>
@@ -54,7 +53,7 @@ CtrlPortListener::CtrlPortListener(TransmitterData *transmitter_data, DataQueueP
         throw CtrlServerCreateException("setsockopt broadcast");
     }
 
-    const static int TTL_VALUE = 4;
+    const static int TTL_VALUE = 10;
     optval = TTL_VALUE;
     if (setsockopt(rexm_send_sock_, IPPROTO_IP, IP_MULTICAST_TTL, reinterpret_cast<void *>(&optval),
                    sizeof optval) < 0) {
@@ -188,7 +187,7 @@ void CtrlPortListener::listenOnCtrlPort(std::future<void> future_stopper) {
 
         rcva_len = (socklen_t) sizeof(client_address);
         rcv_len = recvfrom(ctrl_recv_sock_, buffer, sizeof(buffer), 0,
-                           (struct sockaddr *) &client_address, &rcva_len);  // blocking
+                           reinterpret_cast<struct sockaddr *>(&client_address), &rcva_len);  // blocking
 
         if (rcv_len < 0 && errno != EAGAIN) {
             throw ServerRunException("recvfrom in CtrlPortListener");
@@ -219,6 +218,6 @@ void CtrlPortListener::listenOnCtrlPort(std::future<void> future_stopper) {
             timeout.tv_sec = tValAfter.tv_sec - tValBefore.tv_sec;
             timeout.tv_usec = tValAfter.tv_usec - tValBefore.tv_usec;
         }
-        setsockopt(ctrl_recv_sock_, SOL_SOCKET, SO_RCVTIMEO, (char *) &timeout, sizeof(timeout));
+        setsockopt(ctrl_recv_sock_, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<char *>(&timeout), sizeof(timeout));
     }
 }
