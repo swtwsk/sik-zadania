@@ -51,7 +51,6 @@ CtrlPortListener::CtrlPortListener(TransmitterData *transmitter_data, DataQueueP
     int optval = ENABLE_BROADCAST_VALUE;
     if (setsockopt(rexm_send_sock_, SOL_SOCKET, SO_BROADCAST, reinterpret_cast<void *>(&optval),
                    sizeof optval) < 0) {
-        close(rexm_send_sock_);
         throw CtrlServerCreateException("setsockopt broadcast");
     }
 
@@ -59,19 +58,16 @@ CtrlPortListener::CtrlPortListener(TransmitterData *transmitter_data, DataQueueP
     optval = TTL_VALUE;
     if (setsockopt(rexm_send_sock_, IPPROTO_IP, IP_MULTICAST_TTL, reinterpret_cast<void *>(&optval),
                    sizeof optval) < 0) {
-        close(rexm_send_sock_);
         throw CtrlServerCreateException("setsockopt multicast ttl");
     }
 
     rexm_send_address_.sin_family = AF_INET;
     rexm_send_address_.sin_port = htons(transmitter_data_->getDataPort());
     if (inet_aton(transmitter_data_->getMcastAddr().c_str(), &rexm_send_address_.sin_addr) == 0) {
-        close(rexm_send_sock_);
         throw CtrlServerCreateException("inet_aton");
     }
     if (connect(rexm_send_sock_, reinterpret_cast<struct sockaddr *>(&rexm_send_address_),
                 sizeof rexm_send_address_) < 0) {
-        close(rexm_send_sock_);
         throw CtrlServerCreateException("connect");
     }
 }
