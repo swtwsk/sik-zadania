@@ -64,7 +64,7 @@ CtrlPortListener::CtrlPortListener(TransmitterData *transmitter_data, DataQueueP
     }
 
     rexm_send_address_.sin_family = AF_INET;
-    rexm_send_address_.sin_port = htons(transmitter_data_->getCtrlPort());
+    rexm_send_address_.sin_port = htons(transmitter_data_->getDataPort());
     if (inet_aton(transmitter_data_->getMcastAddr().c_str(), &rexm_send_address_.sin_addr) == 0) {
         close(rexm_send_sock_);
         throw CtrlServerCreateException("inet_aton");
