@@ -22,7 +22,7 @@ int parseCommandLineArgs(int argc, char *argv[], TransmitterData &transmitter_da
 
     auto mcast_addr_arg_pair = cmdOptionExists(argv, argv + argc, "-a");
     if (!mcast_addr_arg_pair.first) {
-        std::cerr << "Usage: " << argv[0] << " -a mcast_addr_" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " -a mcast_addr" << std::endl;
         return 1;
     }
 
@@ -38,7 +38,7 @@ int parseCommandLineArgs(int argc, char *argv[], TransmitterData &transmitter_da
         else if (!strcmp(argv[i], "-P")) {
             std::istringstream ss(argv[i + 1]);
             if (!(ss >> port_arg)) {
-                std::cerr << "Invalid data_port_ argument" << std::endl;
+                std::cerr << "Invalid data_port argument" << std::endl;
                 return 1;
             }
             transmitter_data.setDataPort(port_arg);
@@ -46,7 +46,7 @@ int parseCommandLineArgs(int argc, char *argv[], TransmitterData &transmitter_da
         else if (!strcmp(argv[i], "-C")) {
             std::istringstream ss(argv[i + 1]);
             if (!(ss >> port_arg)) {
-                std::cerr << "Invalid ctrl_port_ argument" << std::endl;
+                std::cerr << "Invalid ctrl_port argument" << std::endl;
                 return 1;
             }
             transmitter_data.setCtrlPort(port_arg);
@@ -54,7 +54,7 @@ int parseCommandLineArgs(int argc, char *argv[], TransmitterData &transmitter_da
         else if (!strcmp(argv[i], "-p")) {
             std::istringstream ss(argv[i + 1]);
             if (!(ss >> unsigned_arg)) {
-                std::cerr << "Invalid psize_ argument" << std::endl;
+                std::cerr << "Invalid psize argument" << std::endl;
                 return 1;
             }
             transmitter_data.setPsize(unsigned_arg);
@@ -62,7 +62,7 @@ int parseCommandLineArgs(int argc, char *argv[], TransmitterData &transmitter_da
         else if (!strcmp(argv[i], "-f")) {
             std::istringstream ss(argv[i + 1]);
             if (!(ss >> unsigned_arg)) {
-                std::cerr << "Invalid fsize_ argument" << std::endl;
+                std::cerr << "Invalid fsize argument" << std::endl;
                 return 1;
             }
             transmitter_data.setFsize(unsigned_arg);
@@ -70,7 +70,7 @@ int parseCommandLineArgs(int argc, char *argv[], TransmitterData &transmitter_da
         else if (!strcmp(argv[i], "-R")) {
             std::istringstream ss(argv[i + 1]);
             if (!(ss >> unsigned_arg)) {
-                std::cerr << "Invalid rtime_ argument" << std::endl;
+                std::cerr << "Invalid rtime argument" << std::endl;
                 return 1;
             }
             transmitter_data.setRtime(unsigned_arg);
@@ -78,15 +78,15 @@ int parseCommandLineArgs(int argc, char *argv[], TransmitterData &transmitter_da
         else if (!strcmp(argv[i], "-n")) {
             std::string nazwa = std::string(argv[i + 1]);
             if (nazwa.empty() || nazwa.length() > 64) {
-                std::cerr << "Invalid nazwa_ argument (should be at most 64 characters)" << std::endl;
+                std::cerr << "Invalid nazwa argument (should be at most 64 characters)" << std::endl;
                 return 1;
             }
             transmitter_data.setNazwa(nazwa);
         }
         else {
             std::cerr << "Invalid arguments, proper usage:\n"
-                         << argv[0] << " -a mcast_addr_" << " [-P data_port_]" << " [-C ctrl_port_]" << " [-p psize_]"
-                         << " [-f fsize_]" << " [-R rtime_]" << " [-n nazwa_]" << std::endl;
+                         << argv[0] << " -a mcast_addr" << " [-P data_port]" << " [-C ctrl_port]" << " [-p psize]"
+                         << " [-f fsize]" << " [-R rtime]" << " [-n nazwa]" << std::endl;
             return 1;
         }
     }

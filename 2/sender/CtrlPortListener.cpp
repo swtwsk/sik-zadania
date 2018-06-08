@@ -199,7 +199,9 @@ void CtrlPortListener::listenOnCtrlPort(std::future<void> future_stopper) {
                 handleLookup(client_address);
             }
             else if (ctrl_message.length() > REXMIT_MSG.length()
-                && ctrl_message.compare(0, REXMIT_MSG.length(), REXMIT_MSG) == 0) {
+                && ctrl_message.compare(0, REXMIT_MSG.length(), REXMIT_MSG) == 0
+                && ctrl_message[ctrl_message.length() - 1] == '\n') {
+                
                 handleRexmit(ctrl_message);
             }
         }

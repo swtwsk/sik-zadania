@@ -62,8 +62,13 @@ void Transmitter::readStdIn() {
     NumType first_byte_num = 0;
 
     auto *input = new Byte[transmitter_data_->getPsize()];
+    size_t read_len;
 
-    while (fread(input, sizeof(Byte), transmitter_data_->getPsize(), stdin)) {
+    while ((read_len = fread(input, sizeof(Byte), transmitter_data_->getPsize(), stdin))) {
+        if (read_len < transmitter_data_->getPsize()) {
+            break;
+        }
+
         data_queue_->push(input, transmitter_data_->getPsize());
 
         Byte *pack_to_send = transmitter_data_->packUp(first_byte_num, input);
