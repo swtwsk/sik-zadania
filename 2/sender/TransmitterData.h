@@ -32,11 +32,11 @@ public:
     const static NumType PACKET_HEADER_SIZE = 2 * sizeof(NumType);
 
 private:
-    const in_port_t DEFAULT_DATA_PORT = 26085;
-    const in_port_t DEFAULT_CTRL_PORT = 36085;
-    const NumType DEFAULT_PSIZE = 512;
-    const NumType DEFAULT_FSIZE = 131072;
-    const NumType DEFAULT_RTIME = 250;
+    const static in_port_t DEFAULT_DATA_PORT = 26085;
+    const static in_port_t DEFAULT_CTRL_PORT = 36085;
+    const static NumType DEFAULT_PSIZE = 512;
+    const static NumType DEFAULT_FSIZE = 131072;
+    const static NumType DEFAULT_RTIME = 250;
     const std::string DEFAULT_NAZWA = "Nienazwany Nadajnik";
 
     std::string mcast_addr_;

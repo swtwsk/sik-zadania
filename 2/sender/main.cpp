@@ -9,9 +9,9 @@
 #include "Transmitter.h"
 #include "ServerException.h"
 
-std::pair<bool, char **> cmdOptionExists(char** begin, char** end, const std::string& option) {
+bool cmdOptionExists(char** begin, char** end, const std::string& option) {
     char **it = std::find(begin, end, option);
-    return std::make_pair(it != end && ++it != end, it);
+    return it != end && ++it != end;
 }
 
 int parseCommandLineArgs(int argc, char *argv[], TransmitterData &transmitter_data) {
@@ -20,20 +20,23 @@ int parseCommandLineArgs(int argc, char *argv[], TransmitterData &transmitter_da
         return 1;
     }
 
-    auto mcast_addr_arg_pair = cmdOptionExists(argv, argv + argc, "-a");
-    if (!mcast_addr_arg_pair.first) {
+    if (!cmdOptionExists(argv, argv + argc, "-a")) {
         std::cerr << "Usage: " << argv[0] << " -a mcast_addr" << std::endl;
         return 1;
     }
 
-    transmitter_data.setMcastAddr(*(mcast_addr_arg_pair.second));
-
     uint64_t unsigned_arg;
     in_port_t port_arg;
+    std::string string_arg;
 
     for (int i = 1; i < argc; i += 2) {
         if (!strcmp(argv[i], "-a")) {
-            continue;
+            std::istringstream ss(argv[i + 1]);
+            if (!(ss >> string_arg)) {
+                std::cerr << "Invalid mcast_addr argument" << std::endl;
+                return 1;
+            }
+            transmitter_data.setMcastAddr(string_arg);
         }
         else if (!strcmp(argv[i], "-P")) {
             std::istringstream ss(argv[i + 1]);
