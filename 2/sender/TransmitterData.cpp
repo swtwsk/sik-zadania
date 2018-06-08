@@ -1,3 +1,5 @@
+#include <cstring>
+
 #include "TransmitterData.h"
 
 TransmitterData::TransmitterData()
@@ -83,9 +85,7 @@ TransmitterData::Byte *TransmitterData::packUp(NumType first_byte_num, Transmitt
     htonull(to_return, 0, session_id_);
     htonull(to_return, 8, first_byte_num);
 
-    for (size_t i = 0; i < psize_; ++i) {
-        to_return[i + PACKET_HEADER_SIZE] = audio_data[i];
-    }
+    std::memcpy(to_return + PACKET_HEADER_SIZE, audio_data, psize_ * sizeof(Byte));
 
     return to_return;
 }
