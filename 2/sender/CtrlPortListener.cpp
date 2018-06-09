@@ -5,6 +5,7 @@
 #include <string>
 #include <sstream>
 #include <list>
+#include <iostream>
 
 #include "CtrlPortListener.h"
 #include "ServerException.h"
