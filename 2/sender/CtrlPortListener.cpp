@@ -103,7 +103,7 @@ void CtrlPortListener::prepareAndSendRetransmissionPackets(std::vector<NumType> 
 void CtrlPortListener::handleRetransmissions(std::future<void> future_stopper) {
     std::list<std::future<void>> retransmission_tasks;
 
-    while(future_stopper.wait_for(std::chrono::milliseconds(rtime_)) != std::future_status::ready) {
+    do {
         if(!rexmit_set_.empty()) {
             std::vector<NumType> packages_requests = rexmit_set_.elements();
             retransmission_tasks.push_back(std::async(
@@ -116,7 +116,7 @@ void CtrlPortListener::handleRetransmissions(std::future<void> future_stopper) {
                 it = retransmission_tasks.erase(it);
             }
         }
-    }
+    } while(future_stopper.wait_for(std::chrono::milliseconds(rtime_)) != std::future_status::ready);
 }
 
 void CtrlPortListener::handleLookup(struct sockaddr_in &client_address) {
@@ -186,10 +186,10 @@ void CtrlPortListener::listenOnCtrlPort(std::future<void> future_stopper) {
         ssize_t rcv_len = 0;
 
         rcva_len = (socklen_t) sizeof(client_address);
-        rcv_len = recvfrom(ctrl_recv_sock_, buffer, sizeof(buffer), 0,
+        rcv_len = recvfrom(ctrl_recv_sock_, buffer, sizeof(buffer) - 1, 0,
                            reinterpret_cast<struct sockaddr *>(&client_address), &rcva_len);  // blocking
 
-        if (rcv_len < 0 && errno != EAGAIN) {
+        if (rcv_len < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
             throw ServerRunException("recvfrom in CtrlPortListener");
         }
         else if (rcv_len > 0) {

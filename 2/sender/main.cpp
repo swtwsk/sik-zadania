@@ -4,6 +4,7 @@
 #include <sstream>
 #include <string>
 #include <netinet/in.h>
+#include <regex>
 
 #include "TransmitterData.h"
 #include "Transmitter.h"
@@ -12,6 +13,16 @@
 bool cmdOptionExists(char** begin, char** end, const std::string& option) {
     char **it = std::find(begin, end, option);
     return it != end && ++it != end;
+}
+
+bool checkIPAddr(const std::string &ip_addr) {
+    std::regex ip_addr_regex("(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\."
+                             "(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\."
+                             "(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\."
+                             "(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])");
+
+
+    return std::regex_match(ip_addr, ip_addr_regex);
 }
 
 int parseCommandLineArgs(int argc, char *argv[], TransmitterData &transmitter_data) {
@@ -33,6 +44,10 @@ int parseCommandLineArgs(int argc, char *argv[], TransmitterData &transmitter_da
         if (!strcmp(argv[i], "-a")) {
             std::istringstream ss(argv[i + 1]);
             if (!(ss >> string_arg)) {
+                std::cerr << "Invalid mcast_addr argument" << std::endl;
+                return 1;
+            }
+            if (!checkIPAddr(string_arg)) {
                 std::cerr << "Invalid mcast_addr argument" << std::endl;
                 return 1;
             }
