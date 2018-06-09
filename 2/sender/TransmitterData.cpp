@@ -1,4 +1,5 @@
 #include <cstring>
+#include <endian.h>
 
 #include "TransmitterData.h"
 
@@ -54,29 +55,8 @@ const std::string &TransmitterData::getNazwa() const {
 }
 
 void htonull(TransmitterData::Byte *data, size_t start_index, TransmitterData::NumType val) {
-    static const int num = 42;
-
-    // Check the endianness
-    if (*reinterpret_cast<const char*>(&num) == num) {
-        data[start_index] = val >> 56 & 0xFF;
-        data[start_index + 1] = val >> 48 & 0xFF;
-        data[start_index + 2] = val >> 40 & 0xFF;
-        data[start_index + 3] = val >> 32 & 0xFF;
-        data[start_index + 4] = val >> 24 & 0xFF;
-        data[start_index + 5] = val >> 16 & 0xFF;
-        data[start_index + 6] = val >> 8 & 0xFF;
-        data[start_index + 7] = val >> 0 & 0xFF;
-    }
-    else {
-        data[start_index] = val >> 0;
-        data[start_index + 1] = val >> 8;
-        data[start_index + 2] = val >> 16;
-        data[start_index + 3] = val >> 24;
-        data[start_index + 4] = val >> 32;
-        data[start_index + 5] = val >> 40;
-        data[start_index + 6] = val >> 48;
-        data[start_index + 7] = val >> 56;
-    }
+    uint64_t to_send = htobe64(val);
+    std::memcpy(data + start_index, &to_send, sizeof (to_send));
 }
 
 TransmitterData::Byte *TransmitterData::packUp(NumType first_byte_num, TransmitterData::Byte *audio_data) {
