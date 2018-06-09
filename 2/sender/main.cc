@@ -124,7 +124,7 @@ int main(int argc, char *argv[]) {
     try {
         transmitter->startTransmitter();
     }
-    catch (ServerException &e) {
+    catch (TCPServerException &e) {
         std::cerr << e.what() << std::endl;
         return 1;
     }

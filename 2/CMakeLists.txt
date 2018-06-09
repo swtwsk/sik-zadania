@@ -4,7 +4,7 @@ project(sikradio)
 find_package ( Threads REQUIRED )
 
 set(CMAKE_CXX_COMPILER "g++")
-set(CMAKE_CXX_FLAGS "-g -Wall -Wextra -O2 -Wpedantic -Wshadow -Wfatal-errors -std=c++17")
+set(CMAKE_CXX_FLAGS "-g -Wall -O2 -std=c++17")
 
 # http://stackoverflow.com/questions/10555706/
 macro (add_executable _name)
