@@ -42,6 +42,7 @@ private:
 
     const std::string LOOKUP_MSG = "ZERO_SEVEN_COME_IN\n";
     const std::string REXMIT_MSG = "LOUDER_PLEASE";
+    const std::string LOOKUP_RESPONSE = "BOREWICZ_HERE";
     const static size_t BUFFER_SIZE = 65536; // MAX UDP PACKET SIZE (including IP & UPD headers)
 
     void handleLookup(struct sockaddr_in &client_address);

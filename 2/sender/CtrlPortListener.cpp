@@ -121,7 +121,7 @@ void CtrlPortListener::handleRetransmissions(std::future<void> future_stopper) {
 
 void CtrlPortListener::handleLookup(struct sockaddr_in &client_address) {
     std::stringstream ss;
-    ss << "BOREWICZ_HERE " << transmitter_data_->getMcastAddr() << " " << transmitter_data_->getDataPort()
+    ss << LOOKUP_RESPONSE << " " << transmitter_data_->getMcastAddr() << " " << transmitter_data_->getDataPort()
        << " " << transmitter_data_->getNazwa() << "\n";
 
     std::string response = ss.str();
