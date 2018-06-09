@@ -119,7 +119,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    std::unique_ptr transmitter = std::make_unique<Transmitter>(&transmitter_data);
+    std::unique_ptr<Transmitter> transmitter = std::make_unique<Transmitter>(&transmitter_data);
 
     try {
         transmitter->startTransmitter();

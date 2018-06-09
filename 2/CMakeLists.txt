@@ -15,6 +15,6 @@ macro (add_executable _name)
     endif()
 endmacro()
 
-add_executable(sikradio-sender sender/main.cpp sender/Transmitter.cpp sender/Transmitter.h sender/CtrlPortListener.cpp
+add_executable(sikradio-sender sender/main.cc sender/Transmitter.cc sender/Transmitter.h sender/CtrlPortListener.cc
         sender/CtrlPortListener.h sender/ConcurrentContainers.h sender/ServerException.h sender/TransmitterData.h
-        sender/TransmitterData.cpp)
+        sender/TransmitterData.cc)
